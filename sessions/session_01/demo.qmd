@@ -1,0 +1,145 @@
+---
+# ── Document metadata ──────────────────────────────────────────────────────────
+title: "Income and Life Expectancy: A Global Perspective"
+subtitle: "A short analytical report"
+author: "Prof. Dr. Claudius Gräbner-Radkowitsch"  # change to your name
+date: today        # renders as the current date automatically — no need to update
+# ── Output formats ─────────────────────────────────────────────────────────────
+format:
+  html:
+    toc: true              # table of contents on the side
+    toc-depth: 3           # include headings up to level 3 (###)
+    number-sections: true  # numbered headings: 1, 1.1, 1.2, 2, ...
+    code-fold: true        # code chunks collapsed by default; reader can expand
+  docx:
+    toc: true
+    number-sections: true
+# ── Bibliography ───────────────────────────────────────────────────────────────
+bibliography: references.bib  # path to .bib file (relative to this document)
+# ── Recommended project folder structure (keep this for reference) ─────────────
+# session_01/
+# ├── demo.qmd         ← this file
+# ├── references.bib   ← bibliography
+# ├── data/            ← raw data files go here
+# ├── figures/         ← exported figures (if saving separately)
+# └── output/          ← rendered reports
+---
+
+```{r}
+#| label: setup
+#| include: false   # this chunk runs but produces no output in the document
+
+library(tidyverse)
+
+# Set a consistent ggplot theme for all figures in this document
+theme_set(theme_minimal(base_size = 13))
+```
+
+## Introduction
+
+How does income relate to health? This question sits at the heart of development
+economics — and it turns out the answer is both intuitive and surprising.
+
+At first glance, richer countries do tend to have longer-living populations.
+But the relationship is not linear: the difference in life expectancy between
+a country with a GDP per capita of \$2,000 and one with \$10,000 is much larger
+than the difference between \$50,000 and \$100,000. This pattern was first
+documented systematically by @Preston1975 and has become one of the most
+replicated findings in the social sciences.
+
+In this report, we explore this relationship using cross-country data from the
+World Bank. The central question is: **how much of the variation in life
+expectancy across countries can be explained by income alone?**
+
+The data and methods follow @BekezKezdi2021, who use this dataset as a running
+example for visualisation and regression.
+
+## Data and approach
+
+We use a cross-section of 182 countries observed in 2017. The two key variables
+are:
+
+- **Life expectancy** (years): average life expectancy at birth
+- **GDP per capita** (USD, PPP-adjusted): a standard measure of average income
+
+The data are publicly available from the World Bank World Development Indicators
+and can be downloaded from [OSF](https://osf.io/pguwf/).
+
+For this demonstration, we use a small illustrative dataset to show the code
+structure. In your own work, replace `example_data` with the real dataset.
+
+## Results
+
+### The income–life expectancy relationship
+
+```{r}
+#| label: fig-scatter
+#| fig-cap: "Life expectancy and GDP per capita across selected countries (illustrative data). A log scale on the x-axis straightens the curved relationship."
+#| fig-alt: "Scatter plot showing life expectancy on the y-axis and GDP per capita on the x-axis, with a curved positive relationship."
+
+# Illustrative dataset — replace with real World Bank data for your own analysis
+example_data <- tibble(
+  country        = c("Nigeria", "India", "Brazil", "China",
+                     "Mexico", "Poland", "Germany", "USA", "Norway"),
+  gdp_per_capita = c(5300, 6600, 14100, 16800,
+                     19900, 31900, 53700, 63500, 67300),
+  life_expectancy = c(54, 69, 75, 76,
+                      75, 78, 81, 78, 82)
+)
+
+ggplot(example_data, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(colour = "#00395B", size = 3, alpha = 0.8) +
+  geom_text(
+    aes(label = country),
+    nudge_y = 0.6, size = 3.2, colour = "#6F6F6F"
+  ) +
+  scale_x_log10(labels = scales::label_dollar(scale = 1/1000, suffix = "k")) +
+  labs(
+    x     = "GDP per capita (log scale, USD PPP)",
+    y     = "Life expectancy (years)",
+    title = "Richer countries tend to live longer",
+    subtitle = "But the relationship flattens at high income levels"
+  )
+```
+
+@fig-scatter shows a clear positive association: countries with higher incomes
+tend to have longer life expectancies. Notice that the x-axis uses a **log
+scale** — this straightens the curved relationship and makes the pattern easier
+to read. We will return to this choice in Session 2.
+
+### A first regression
+
+```{r}
+#| label: tbl-regression
+#| tbl-cap: "OLS regression of life expectancy on log GDP per capita."
+
+library(modelsummary)   # for clean regression tables
+
+# Add the log-transformed predictor
+example_data <- example_data |>
+  mutate(log_gdp = log(gdp_per_capita))
+
+# Fit the model
+model <- lm(life_expectancy ~ log_gdp, data = example_data)
+
+# Display results
+modelsummary(
+  model,
+  stars   = TRUE,
+  gof_map = c("nobs", "r.squared")
+)
+```
+
+The coefficient on log GDP per capita tells us: for each 1% increase in GDP per
+capita, life expectancy increases by approximately
+`r round(coef(model)["log_gdp"] / 100, 2)` years on average.
+
+## Conclusion
+
+Even a simple regression reveals a strong positive relationship between income
+and life expectancy. However, income alone cannot explain all of the variation —
+some countries outperform their income level substantially, while others fall
+below it. Unpacking these patterns requires controlling for additional variables,
+a topic we return to in Sessions 2 and 4.
+
+## References
