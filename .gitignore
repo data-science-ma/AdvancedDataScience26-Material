@@ -1,0 +1,17 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+**/.DS_Store
+
+# Quarto build artefacts
+/.quarto/
+*_cache/
+*.utf8.md
+*.knit.md
+**/*.quarto_ipynb
+
+# renv (if used later)
+renv/
+.Rprofile

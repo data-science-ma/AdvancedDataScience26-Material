@@ -1,0 +1,124 @@
+/*-- scss:defaults --*/
+
+// -------------------------------------------------------
+// EUF Brand Colours
+// -------------------------------------------------------
+$euf-kobaltblau:  #00395B;
+$euf-staubgrau:   #6F6F6F;
+$euf-white:       #FFFFFF;
+$euf-red-orange:  #E65032;
+$euf-steel-blue:  #69AACD;
+$euf-green:       #5FB46E;
+
+// -------------------------------------------------------
+// Reveal.js defaults
+// -------------------------------------------------------
+$body-bg:                       $euf-white;
+$body-color:                     #222222;
+$link-color:                     $euf-steel-blue;
+$presentation-heading-color:     $euf-kobaltblau;
+$presentation-heading-font:      'Fira Sans', system-ui, sans-serif;
+$presentation-heading-font-weight: 600;
+$presentation-font-size-root:    36px;
+$presentation-line-height:       1.4;
+
+// -------------------------------------------------------
+// Typography — Fira Sans (replace with FF DAX if licensed)
+// -------------------------------------------------------
+@import url('https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,300;0,400;0,600;1,400&display=swap');
+
+$font-family-sans-serif: 'Fira Sans', system-ui, sans-serif;
+
+/*-- scss:rules --*/
+
+// -------------------------------------------------------
+// CSS custom properties
+// -------------------------------------------------------
+:root {
+  --euf-kobaltblau: #{$euf-kobaltblau};
+  --euf-staubgrau:  #{$euf-staubgrau};
+  --euf-red-orange: #{$euf-red-orange};
+  --euf-steel-blue: #{$euf-steel-blue};
+  --euf-green:      #{$euf-green};
+}
+
+// -------------------------------------------------------
+// Title slide
+// -------------------------------------------------------
+.reveal .title-slide,
+.reveal .quarto-title-block {
+  background-color: $euf-kobaltblau;
+  color: $euf-white;
+}
+
+.reveal .title-slide h1,
+.reveal .title-slide .title {
+  color: $euf-white;
+  font-size: 1.6em;
+}
+
+.reveal .title-slide .subtitle {
+  color: $euf-steel-blue;
+  font-weight: 300;
+}
+
+.reveal .title-slide .author,
+.reveal .title-slide .date {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.7em;
+}
+
+// -------------------------------------------------------
+// Slide headings
+// -------------------------------------------------------
+.reveal h2 {
+  color: $euf-kobaltblau;
+  border-bottom: 2px solid $euf-steel-blue;
+  padding-bottom: 0.15em;
+}
+
+// -------------------------------------------------------
+// Progress bar
+// -------------------------------------------------------
+.reveal .progress span {
+  background-color: $euf-red-orange;
+}
+
+// -------------------------------------------------------
+// Slide number
+// -------------------------------------------------------
+.reveal .slide-number {
+  color: $euf-staubgrau;
+  background-color: transparent;
+}
+
+// -------------------------------------------------------
+// Code blocks
+// -------------------------------------------------------
+.reveal pre code {
+  font-size: 0.75em;
+  line-height: 1.4;
+}
+
+// -------------------------------------------------------
+// Highlighted / callout text
+// -------------------------------------------------------
+.reveal .callout-note    { border-left-color: $euf-steel-blue  !important; }
+.reveal .callout-tip     { border-left-color: $euf-green       !important; }
+.reveal .callout-warning { border-left-color: $euf-red-orange  !important; }
+
+// -------------------------------------------------------
+// Tables
+// -------------------------------------------------------
+.reveal table thead th {
+  background-color: $euf-kobaltblau;
+  color: $euf-white;
+}
+
+// -------------------------------------------------------
+// Accent utility classes (use in slides as needed)
+// e.g. [some text]{.accent} or [note]{.muted}
+// -------------------------------------------------------
+.accent { color: $euf-red-orange; font-weight: 600; }
+.muted  { color: $euf-staubgrau;  }
+.highlight { background-color: rgba(105, 170, 205, 0.2); padding: 0 0.2em; border-radius: 3px; }

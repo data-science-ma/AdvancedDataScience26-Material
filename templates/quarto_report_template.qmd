@@ -1,0 +1,67 @@
+---
+title: "Report Title"
+subtitle: "Data Science and Econometrics for International Business"
+author: "Your Name"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true        # show/hide code blocks with a toggle
+    code-tools: true       # copy-code button
+  docx:
+    toc: true
+    number-sections: true
+    reference-doc: null    # add a .docx reference file here for custom Word styles
+bibliography: ../templates/references.bib   # adjust path as needed
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+
+# Set a consistent ggplot theme for all figures
+theme_set(theme_minimal(base_size = 12))
+```
+
+## Introduction
+
+*State your research question here. Lead with the business or policy problem, not the method.*
+
+This report analyses [topic] using data from [source]. The central question is: **[question]?**
+
+## Data
+
+*Briefly describe the dataset: source, unit of observation, key variables, sample period.*
+
+```{r}
+#| label: load-data
+
+# data <- read_csv("../data/your-dataset.csv")
+```
+
+## Results
+
+*Present your main findings. Interpret coefficients in plain language — avoid reporting numbers without explanation.*
+
+```{r}
+#| label: fig-main
+#| fig-cap: "Caption describing what the figure shows."
+
+# Your ggplot2 code here
+```
+
+As shown in @fig-main, ...
+
+## Discussion
+
+*What do the results mean for the business question? What are the limitations of your analysis?*
+
+## Conclusion
+
+*Summarise the key finding in 2–3 sentences for a non-technical reader.*
+
+## References
