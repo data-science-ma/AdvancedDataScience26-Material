@@ -1,0 +1,581 @@
+---
+title: "Multiple Regression: Going Beyond the Basics"
+subtitle: "Session 2 — 09 April 2026"
+author: "Prof. Dr. Claudius Gräbner-Radkowitsch"
+institute: "Europa-Universität Flensburg"
+date: "09 April 2026"
+format:
+  revealjs:
+    theme: [default, ../../assets/custom.scss]
+    slide-number: true
+    progress: true
+    embed-resources: true
+    footer: "Adv. Data Science & Econometrics 2026 | Session 2"
+    width: 1280
+    height: 720
+execute:
+  eval: false
+---
+
+```{r}
+#| label: data-setup
+#| echo: false
+#| eval: true
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(modelsummary)
+library(broom)
+library(flextable)
+
+cps_raw <- read_csv("data/morg-2014-emp.csv")
+
+cps <- cps_raw |>
+  filter(occ2012 == 735, age >= 24, age <= 64, uhours >= 20) |>
+  mutate(
+    college = ifelse(grade92 >= 43, 1, 0),
+    female  = ifelse(sex == 2, 1, 0),
+    age_sq  = age^2,
+    edu_cat = case_when(
+      grade92 <  43 ~ "No degree",
+      grade92 <= 44 ~ "Bachelor's",
+      grade92 >= 45 ~ "Graduate"
+    ),
+    edu_cat = factor(edu_cat, levels = c("No degree", "Bachelor's", "Graduate"))
+  ) |>
+  select(earnwke, age, age_sq, uhours, college, female, edu_cat) |>
+  drop_na()
+
+m1 <- lm(earnwke ~ age,                             data = cps)
+m2 <- lm(earnwke ~ age + age_sq,                    data = cps)
+m3 <- lm(earnwke ~ age + age_sq + uhours + college, data = cps)
+m4 <- lm(earnwke ~ age + age_sq + uhours + college + female, data = cps)
+```
+
+## Today's plan
+
+<br>
+
+| Time | Activity |
+|---|---|
+| 16:00–16:10 | Debriefing of take-home task 1 |
+| 16:10–16:30 | Input lecture: categorical variables and interactions |
+| 16:30–17:00 | Live coding: expanding take-home 1 |
+| 17:00–17:15 | Break |
+| 17:15–18:15 | In-session exercise: hotel prices in Vienna |
+| 18:15–18:20 | Short break |
+| 18:20–18:45 | Debriefing the exercise |
+| 18:45–19:00 | Introduce Take-home Task 2, Q&A |
+
+# Debriefing Take Home 1
+
+## Take-home task 1: what you did
+
+**Dataset:** CPS 2014 — market research analysts and marketing specialists
+
+**What you built:**
+
+- Model 1: earnings ~ age (linear)
+- Model 2: earnings ~ age + age² (quadratic — better residual pattern)
+- Model 3: earnings ~ age + age² + hours + college (with controls)
+
+
+---
+
+## Take-home task 1: the results {.smaller}
+
+<br>
+
+```{r}
+#| echo: false
+#| eval: true
+
+modelsummary(
+  list("M1: Age" = m1, "M2: Quadratic" = m2, "M3: Full model" = m3),
+  coef_map = c("age"         = "Age",
+               "age_sq"      = "Age²",
+               "uhours"      = "Weekly hours",
+               "college"     = "College degree",
+               "(Intercept)" = "Constant"),
+  gof_map  = c("nobs", "r.squared"),
+  stars    = TRUE,
+  notes    = "CPS 2014. Market research analysts, age 24–64, ≥ 20 hrs/week."
+)
+```
+
+
+. . .
+
+**Be aware:** Adding `uhours` and `college` shifted the age coefficients!
+
+---
+
+## Common issues: raw output {.smaller}
+
+```{r}
+#| echo: true
+#| eval: true
+
+modelsummary(list(m1, m2, m3), gof_map = c("nobs", "r.squared"))
+```
+
+Column headers auto-named; row labels are raw R names: `age_sq`, `(Intercept)`, `college`
+
+---
+
+## Common issues: polished output {.smaller}
+
+```{r}
+#| echo: true
+#| eval: true
+#| code-line-numbers: "2|3-7|8|9"
+
+modelsummary(
+  list("M1: Age" = m1, "M2: Quadratic" = m2, "M3: Full model" = m3),
+  coef_map = c("age"         = "Age",
+               "age_sq"      = "Age²",
+               "uhours"      = "Weekly hours",
+               "college"     = "College degree",
+               "(Intercept)" = "Constant"),
+  gof_map  = c("nobs", "r.squared"),
+  notes    = "CPS 2014. Market research analysts, age 24–64."
+)
+```
+
+---
+
+## Common issues: interpretation
+
+**Too vague:**
+*"The college coefficient is 128.4."*
+
+. . .
+
+**Too mechanical:**
+*"When college equals one, earnings increase by 128.4, holding other variables constant."*
+
+. . .
+
+**Good:**
+*"Analysts with at least a college degree earn, on average, approximately $128 more per week than those without, holding age and weekly hours constant."*
+
+. . .
+
+::: {.callout-tip}
+Always answer: compared to *whom*? By *how much*? In *what units*? Holding *what* constant?
+:::
+
+---
+
+## Model comparison: `modelsummary` upgrade {.smaller}
+
+```{r}
+#| echo: true
+#| eval: false
+#| code-line-numbers: "2|3-7|8|9|10"
+
+modelsummary(
+  list("Baseline" = m3, "Gender" = m4),
+  coef_map = c("age"         = "Age",
+               "age_sq"      = "Age²",
+               "uhours"      = "Weekly hours",
+               "college"     = "College degree",
+               "(Intercept)" = "Constant"),
+  gof_map  = c("nobs", "r.squared", "adj.r.squared"),
+  stars    = TRUE,
+  notes    = "CPS 2014. Market research analysts, age 24–64, ≥ 20 hrs/week."
+)
+```
+
+::: {.incremental}
+- **Line 2:** name your models → readable column headers
+- **Lines 3–7:** `coef_map` → rename rows *and* drop anything not listed
+- **Line 8:** `adj.r.squared` → penalises complexity, more honest than R² alone
+- **Line 10:** `notes` → source and sample description belongs in the table
+:::
+
+---
+
+## The answer to Reflection Question 1
+
+*"Your analysis left out one important individual characteristic that is systematically linked to earnings. Which variable is this?"*
+
+. . .
+
+**Gender.**
+
+. . . 
+
+```{r}
+#| echo: true
+#| eval: true
+
+tidy(cor.test(cps$female, cps$earnwke)) |>
+  select(estimate, p.value, conf.low, conf.high) |>
+  mutate(across(everything(), \(x) round(x, 3))) |> 
+  flextable() |> 
+  theme_vanilla()
+```
+
+. . .
+
+Today we learn more about how to properly include categorial variables such as gender
+
+# Categorial variables: introduction
+
+## What is a categorical variable?
+
+A variable that takes a **finite set of named values** — not a continuous scale.
+
+| Variable | Values |
+|---|---|
+| Gender | Male, Female |
+| Education | No degree, Bachelor's, Graduate |
+| Hotel star rating | 3-star, 4-star, 5-star |
+| Country | Germany, France, Denmark, … |
+
+. . .
+
+**The problem:** You cannot pass the text label `"Female"` to `lm()`.
+
+. . .
+
+**The solution:** Dummy variables — convert each category to a 0/1 indicator.
+
+---
+
+## How R handles categories
+
+R picks one category as the **reference group** and creates one binary (0/1) indicator for each remaining category.
+
+**Example:** Gender (reference = Male)
+
+| Person | Sex | `female` |
+|--------|-----|---------------|
+| Anna | Female | 1 |
+| Ben | Male | 0 |
+| Claudia | Female | 1 |
+
+. . .
+
+```r
+cps <- cps |> mutate(female = ifelse(sex == 2, 1, 0))
+# OR: use factor(sex) and let R create the dummies automatically
+```
+
+. . . 
+
+::: {.callout-tip}
+Using `factor()` with the `levels` argument lets you set the reference group manually.
+
+The first element in the levels vector will be the reference group (otherwise: defaults to alphabetical order).
+:::
+
+---
+
+## Interpreting a dummy coefficient
+
+**Model:** `earnwke ~ age + uhours + female`
+
+. . .
+
+```{r}
+#| echo: false
+#| eval: true
+
+tidy(lm(earnwke ~ age + uhours + female, data = cps)) |>
+  select(term, estimate, std.error, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 2))) |>
+  knitr::kable(col.names = c("Term", "Estimate", "Std. Error", "p-value"))
+```
+
+. . .
+
+→ Female analysts earn, on average, approximately **$`r round(abs(coef(lm(earnwke ~ age + uhours + female, data = cps))["female"]))` per week less** than male analysts of the same age and hours.
+
+---
+
+## Where do dummy coefficients come from?
+
+In a **simple** regression of earnings on gender only, the coefficient equals the raw mean difference:
+
+. . . 
+
+```{r}
+#| echo: true
+#| eval: true
+#| code-line-numbers: "2|3|4"
+
+cps |>
+  group_by(female) |>
+  summarise(mean_earn = round(mean(earnwke), 1)) |>
+  mutate(diff_vs_male = round(mean_earn - mean_earn[female == 0], 1)) |> 
+  flextable() |> 
+  theme_vanilla()
+```
+
+. . . 
+
+```{r}
+#| echo: true
+#| eval: true
+
+coef(lm(earnwke ~ female, data = cps))["female"] |> round(1)
+```
+
+. . .
+
+::: {.callout-important}
+With controls (age, uhours), the coefficient changes — it is the difference **holding other variables constant**, not the raw group gap.
+:::
+
+---
+
+## Multi-category variables
+
+What if we want education as three levels, not a binary college/no-college split?
+
+::: {.incremental}
+- Pick a **reference category** (e.g. "No degree")
+- R creates k − 1 dummy variables for k categories
+- Each coefficient = difference from the reference group
+:::
+
+. . .
+
+```{r}
+#| echo: true
+#| eval: true
+
+cps |>
+  group_by(edu_cat) |>
+  summarise(mean_earn = round(mean(earnwke), 1)) |>
+  mutate(vs_no_degree = round(mean_earn - mean_earn[edu_cat == "No degree"], 1)) |>
+  flextable() |>
+  theme_vanilla() |> 
+  autofit()
+```
+
+---
+
+## Why the reference category matters
+
+**Same model, different reference — different numbers, same underlying story.**
+
+::: {.incremental}
+- Reference = No degree: Bachelor +$80, Graduate +$180
+- Reference = Bachelor: No degree −$80, Graduate +$100
+- Reference = Graduate: No degree −$180, Bachelor −$100
+:::
+
+. . .
+
+**How does R choose the reference by default?**
+
+R orders factor levels **alphabetically** — the first level alphabetically becomes the reference.
+
+```r
+factor(c("Graduate", "No degree", "Bachelor"))
+# Levels: Bachelor's  Graduate  No degree   ← Bachelor is reference (B < G < N)
+```
+
+. . . 
+
+**Easiest fix:** set levels manually
+
+```r
+factor(c("Graduate", "No degree", "Bachelor's"), levels = c("No degree", "Bachelor", "Graduate"))
+# Levels: Bachelor's  Graduate  No degree   ← No degree is reference (N < B < G)
+```
+
+. . .
+
+**Ex-post override:** specify the order explicitly or use `relevel()`:
+
+```r
+factor(edu, levels = c("No degree", "Bachelor's", "Graduate"))
+# Now "No degree" is the reference
+relevel(factor(edu), ref = "No degree")  # same result
+```
+
+# Interaction terms
+
+## Interaction terms: motivation
+
+**A regression without interactions assumes:**
+The effect of age on earnings is *the same* for men and women.
+
+. . .
+
+**But is that realistic?**
+
+- Career interruptions are not equally distributed across genders
+- Seniority and promotion patterns differ
+- The age–earnings profile may be steeper for men
+
+. . .
+
+**An interaction term lets the slope of age differ by gender.**
+
+---
+
+## Visualising an interaction {.smaller}
+
+```{r}
+#| echo: true
+#| eval: true
+#| fig-height: 4
+#| message: false
+
+cps |>
+  mutate(gender = ifelse(female == 1, "Female", "Male")) |>
+  ggplot(aes(x = age, y = earnwke, colour = gender)) +
+  geom_point(alpha = 0.2, size = 1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_colour_manual(values = c("Male" = "#00395B", "Female" = "#69AACD")) +
+  labs(x = "Age", y = "Weekly earnings (USD)", colour = NULL,
+       title = "Are the age–earnings slopes the same for men and women?") +
+  theme_minimal()
+```
+
+. . . 
+
+But do the slopes really differ significantly, or is this really just a level difference plus noise? 🤔
+
+---
+
+## Interpreting an interaction coefficient {.smaller}
+
+**Model:** `earnwke ~ age * female`  *(shorthand for: `age + female + age:female`)*
+
+```{r}
+#| echo: false
+#| eval: true
+
+tidy(lm(earnwke ~ age * female, data = cps)) |>
+  select(term, estimate, std.error, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  knitr::kable(col.names = c("Term", "Estimate", "Std. Error", "p-value"))
+```
+
+. . .
+
+::: {.incremental}
+- `age`: slope of age **for men** — each additional year adds $[age] to male earnings
+- `female`: level difference at age = 0 — not directly interpretable
+- `age:female`: *extra* slope for women — how much the age slope **differs** for women
+:::
+
+---
+
+## The marginal effect of age
+
+With interactions, "the effect of age" depends on the group.
+
+```{r}
+#| echo: false
+#| eval: true
+
+tidy(lm(earnwke ~ age * female, data = cps)) |>
+  select(term, estimate, std.error, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  knitr::kable(col.names = c("Term", "Estimate", "Std. Error", "p-value"))
+```
+
+```{r}
+#| echo: true
+#| eval: true
+
+b <- coef(lm(earnwke ~ age * female, data = cps))
+```
+
+::: {.incremental}
+- Age slope for men: `round(b["age"], 2)` = `r round(b["age"], 2)` 
+- Age slope for women: `round(b["age"] + b["age:female"], 2)` = `r round(b["age"] + b["age:female"], 2)`
+- Difference: `round(b["age:female"], 2)` = `r round(b["age:female"], 2)`
+:::
+
+
+. . .
+
+$$\frac{\partial \text{earnwke}}{\partial \text{age}} = \hat{\beta}_\text{age} + \hat{\beta}_{\text{age:female}} \times \text{female}$$
+
+→ Always report group-specific slopes — the interaction coefficient alone is difficult to communicate.
+
+
+# Live coding demo
+
+## Live coding demo
+
+We return to the CPS data and extend the take-home analysis:
+
+1. Add `female` back from the raw CPS file
+2. Fit Model 3 from the take-home, now including gender
+3. Recode `grade92` from binary to three education categories
+4. Visualise: do male and female age-earnings profiles look parallel?
+5. Add an age × female interaction
+6. Compare all models in one clean `modelsummary` table
+
+::: {.callout-note}
+The full code and output are available as **lecture notes** on the course website.
+You do not need to take notes — focus on understanding the steps.
+:::
+
+# Exercise
+
+## Exercise: hotel prices in Vienna
+
+**Business question:**
+*What drives hotel prices — and does the price penalty for being far from the city centre differ between budget and luxury hotels?*
+
+**Dataset:** 428 hotels in Vienna (Békés & Kézdi 2021)
+Download from OSF: [osf.io/4e6d8](https://osf.io/4e6d8/)
+
+**Your tasks:**
+
+::: {.incremental}
+1. Explore the data — understand what one observation represents
+2. Model price as a function of distance and stars (numeric, then as a factor)
+3. Add an interaction: does the distance effect vary by star category?
+4. Present all models in a clean `modelsummary` table
+5. Write a plain-language paragraph for a non-technical manager
+:::
+
+# Take-Home Task 2
+
+## Take-Home Task 2
+
+**Assigned today — due 30 April 2026, 08:00**
+
+**Dataset:** English Premier League results and manager data, 2008/09–2018/19
+
+::: {.incremental}
+- Formulate your own research question (e.g. does manager experience predict points?)
+- Estimate and compare multiple regression models
+- Present results with a clean `modelsummary` table
+- Identify one potential problem with your model — diagnose, don't fix
+:::
+
+. . .
+
+Full task description distributed via **GitHub Classroom** (link on the course website).
+
+---
+
+## See you on 30 April
+
+**Next session:** Thu, 30 April — *Modelling binary and categorical outcomes*
+
+**Questions during the break?**
+[GitHub Discussions](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
+
+**Task 2 deadline:** 30 April 2026, 08:00
+
+. . .
+
+The lecture notes extending Task 1 are available now on the course website.
+
+::: aside
+**PDF export (Chrome/Edge):** click ☰ bottom-left → Tools → PDF Export Mode → print.
+:::
