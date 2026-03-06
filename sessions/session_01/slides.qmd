@@ -1,0 +1,244 @@
+---
+title: "Welcome, Recap & Tooling Upgrade"
+subtitle: "Session 1 — 12 March 2026"
+author: "Prof. Dr. Claudius Gräbner-Radkowitsch"
+institute: "Europa-Universität Flensburg"
+date: "12 March 2026"
+format:
+  revealjs:
+    theme: [default, ../../assets/custom.scss]
+    slide-number: true
+    progress: true
+    embed-resources: true
+    mermaid-format: svg
+    footer: "Adv. Data Science & Econometrics 2026 | Session 1"
+    width: 1280
+    height: 720
+---
+
+## What is this course?
+
+**Building on what you know:**
+R, Quarto, basic linear regression — all from *Research Methodology* (Fall 2025)
+
+**What we add:**
+
+- Regression done properly: multiple predictors, binary outcomes, diagnostics
+- Causal thinking: why correlation ≠ causation, and what to do about it
+- Panel data, modern tools, professional communication
+- Learn to use tools such as GitHub, which are essential for today's working environment
+
+**Guiding idea:** Every session starts with a **business question**
+
+::: {.incremental}
+- *Not:* "Today we learn logistic regression"
+- *But:* "Which firms are likely to exit the market — and can we predict it?"
+:::
+
+---
+
+## Full course schedule {.smaller}
+
+<br>
+
+| # | Date | Title |
+|:---:|---|---|
+| 1 | Thu, 12 Mar | **Welcome, recap & tooling upgrade** ← today |
+| — | 19 + 26 Mar | *Take-home task 1* |
+| 2 | Thu, 09 Apr | Multiple regression: going beyond the basics |
+| — | 16 + 23 Apr | *Take-home task 2* |
+| 3 | Thu, 30 Apr | Modelling binary and categorical outcomes |
+| 4 | Thu, 07 May | What can go wrong: biases and diagnostics |
+| — | Thu, 14 May | *No lecture* |
+| 5 | Thu, 21 May | Causation vs. correlation: thinking like an economist |
+| 6 | Thu, 28 May | Panel data and fixed effects |
+| 7 | Thu, 04 Jun | Coding smarter: R and AI tools |
+| 8 | Thu, 11 Jun | Communicating data: advanced visualization |
+| 9 | Thu, 18 Jun | Recap and looking ahead |
+: {tbl-colwidths="[5,18,77]"}
+
+---
+
+## Assessment
+
+**Take-home tasks** (mandatory, pass/fail)
+
+- Two structured analyses submitted as Quarto HTML reports
+- Assigned during the conference/unavailable periods — that time is for you
+- Submit via **GitHub Classroom**
+
+. . .
+
+| Task | Due | Topic |
+|---|---|---|
+| Task 1 | 02 April, 08:00 | Regression basics |
+| Task 2 | 30 April, 08:00 | Extending a regression |
+
+. . .
+
+**Final exam**
+
+- Open-book, on-site, individual
+- Details confirmed later in the semester
+
+---
+
+## How this course works
+
+<br>
+
+**Where you code:** GitHub Codespaces — RStudio in your browser, zero installation
+
+- Alternative: install R Studio and packages locally (as in the previous course)
+
+. . .
+
+**Where you ask questions:** GitHub Discussions on the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
+*(not email, not Moodle — so everyone benefits from the answer)*
+
+**Where you submit:** GitHub Classroom for tasks; Moodle for final exam
+
+. . .
+
+**What you need:**
+
+- A GitHub account (free)
+- GitHub Student Developer Pack (recommended — free professional tools)
+- Nothing else except excitement 😉
+
+---
+
+## Today's plan
+
+<br>
+
+| Time | Block |
+|---|---|
+| 16:00–16:20 | Welcome, course overview, assessment |
+| 16:20–17:00 | Quarto upgrade: live demo document |
+| 17:00–17:15 | Questions and break |
+| 17:15–18:15 | Student exercise |
+| 18:15–19:00 | Introduce Task 1, Q&A |
+
+<br>
+
+. . .
+
+The exercise today is about **workflow setup**, not data analysis.
+
+→ No dataset required — we are building a Quarto template for later
+
+---
+
+## Quarto in this course
+
+**Why Quarto matters:**
+
+- Code and text in one place — no copy-pasting numbers into Word
+- Results update automatically when data or code changes
+- Renders to HTML, PDF, Word — same source file
+
+. . .
+
+**The standard we set today applies to every submission:**
+
+- Proper YAML front matter
+- Numbered sections, table of contents
+- Bibliography with BibTeX citations
+- Clean, commented code chunks
+
+---
+
+## Git: the four things you need
+
+```{mermaid}
+flowchart LR
+  A["📁<br/>Working directory"] -->|"Stage (Git pane)"| B["📋<br/>Staging area"]
+  B -->|"Commit (+ message)"| C["💾<br/>Local repository"]
+  C -->|"Push"| D["☁️<br/>GitHub (remote)"]
+  D -->|"Pull"| A
+
+  style A fill:#f4f6f8,stroke:#00395B
+  style B fill:#f4f6f8,stroke:#69AACD
+  style C fill:#f4f6f8,stroke:#00395B
+  style D fill:#00395B,color:#ffffff,stroke:#00395B
+```
+
+**You only need these four actions.** No branching, no merging.
+
+All of this happens in the **RStudio Git pane** — no command line.
+
+::: {.fragment}
+For a full introduction: [GitHub Skills — Introduction to GitHub](https://github.com/skills/introduction-to-github)
+:::
+
+---
+
+## Quarto upgrade: live demo document
+
+- I will develop a Quarto document as a demo
+- We will also use it to demonstrate how GitHub classroom works
+- You do not need to make any notes, everything will be made available
+- You can do the test for GitHub classroom yourself at home using the link from the website
+
+## Take-home task 1
+
+**You are an analyst producing a briefing on global development patterns.**
+
+. . .
+
+**Dataset:** World Bank — life expectancy and GDP per capita, 182 countries, 2017
+Download from OSF: [osf.io/pguwf](https://osf.io/pguwf/)
+
+**Five tasks:**
+
+1. Load and explore — summary statistics, two plots
+2. Simple regression: life expectancy ~ GDP per capita — interpret the coefficient
+3. Log-transform GDP — does fit improve? Why?
+4. Add one variable, compare models with a `modelsummary` table
+5. Write a 150-word plain-language summary for a non-technical reader
+
+. . .
+
+**Deadline:** 02 April 2026, 08:00
+**Submit:** GitHub Classroom (link will be added soon)
+
+[GitHub Classroom link — to be added]{.muted}
+
+---
+
+## The break weeks
+
+**19 and 16 March, 16 and 23 April**
+
+This time is **intentional and structured:**
+
+- Work on Take-home Task 1 and 2 at your own pace
+- Review material from the prior course if anything feels rusty
+- Post questions in **GitHub Discussions** — I will check regularly
+
+. . .
+
+::: {.callout-tip}
+If something in Task 1 feels unfamiliar, that is a signal — not a problem.
+The two weeks are designed for exactly this.
+:::
+
+---
+
+## See you on 9 April
+
+**Next session:** Thu, 09 April — *Multiple regression: going beyond the basics*
+
+**Questions during the break?**
+[GitHub Discussions](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions) on the course repository
+
+**Task 1 deadline:** 02 April 2026, 08:00
+
+. . .
+
+Good luck — and welcome to the course.
+
+::: aside
+**PDF export (Chrome/Edge):** click ☰ bottom-left → Tools → PDF Export Mode → print. Alternative: add `?print-pdf` to the URL, then print.
+:::

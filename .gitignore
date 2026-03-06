@@ -16,5 +16,3 @@
 renv/
 .Rprofile
 
-# Instructor-only files — not for distribution
-**/solution.qmd

@@ -1,0 +1,92 @@
+---
+# INSTRUCTOR SOLUTION — NOT FOR DISTRIBUTION
+title: "Trade and Development: An Exploratory Report"
+author: "Jane Smith"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: true
+  docx:
+    toc: true
+    number-sections: true
+bibliography: references.bib
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+theme_set(theme_minimal(base_size = 13))
+```
+
+## Introduction
+
+International trade is often described as an engine of economic development.
+Yet the relationship between trade openness and outcomes such as income growth
+or life expectancy is far from straightforward. As @BekezKezdi2021 argue,
+careful empirical analysis requires controlling for confounding variables before
+drawing causal conclusions.
+
+This report provides a brief exploratory overview of the relationship between
+economic development and health outcomes across countries, drawing on the
+framework outlined in @Preston1975.
+
+## Data
+
+The analysis uses a small illustrative dataset of nine countries spanning a wide
+range of income levels. The key variables are GDP per capita (USD, PPP-adjusted)
+and life expectancy at birth (years). In a full analysis, this would be replaced
+by the World Bank World Development Indicators dataset (182 countries, 2017).
+
+```{r}
+#| label: data
+
+example_data <- tibble(
+  country         = c("Nigeria", "India", "Brazil", "China",
+                      "Mexico", "Poland", "Germany", "USA", "Norway"),
+  gdp_per_capita  = c(5300, 6600, 14100, 16800,
+                      19900, 31900, 53700, 63500, 67300),
+  life_expectancy = c(54, 69, 75, 76, 75, 78, 81, 78, 82)
+)
+```
+
+## Results
+
+### Descriptive overview
+
+```{r}
+#| label: fig-scatter
+#| fig-cap: "Life expectancy and GDP per capita across nine countries. The log scale on the x-axis reveals a roughly linear relationship."
+
+ggplot(example_data, aes(x = gdp_per_capita, y = life_expectancy)) +
+  geom_point(colour = "#00395B", size = 3.5, alpha = 0.85) +
+  geom_text(
+    aes(label = country),
+    nudge_y = 0.7, size = 3.2, colour = "#6F6F6F"
+  ) +
+  scale_x_log10(
+    labels = scales::label_dollar(scale = 1/1000, suffix = "k")
+  ) +
+  labs(
+    x        = "GDP per capita (log scale, USD PPP)",
+    y        = "Life expectancy (years)",
+    title    = "Higher income is associated with longer life",
+    subtitle = "Relationship is non-linear on a linear scale"
+  )
+```
+
+As shown in @fig-scatter, there is a clear positive association between income
+and life expectancy. The relationship flattens at higher income levels — a
+pattern first documented by @Preston1975.
+
+## Conclusion
+
+Even a simple cross-country comparison reveals that income and health outcomes
+are strongly associated. This raises the question of causation: does higher
+income cause better health, or do healthier populations generate more income?
+Answering this requires the causal inference tools introduced in Session 5.
+
+## References
