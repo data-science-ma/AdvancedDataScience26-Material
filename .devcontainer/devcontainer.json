@@ -1,7 +1,7 @@
 {
   "name": "Advanced Data Science 2026",
   "image": "rocker/verse:4.4.2",
-  "postCreateCommand": "R -e \"install.packages(c('plm', 'modelsummary', 'fixest', 'lmtest', 'sandwich', 'patchwork'), repos = 'https://cloud.r-project.org')\"",
+    "postCreateCommand": "R -e \"install.packages(c('plm', 'modelsummary', 'fixest', 'lmtest', 'sandwich', 'patchwork', 'marginaleffects'), repos = 'https://cloud.r-project.org')\"",
   "forwardPorts": [8787],
   "portsAttributes": {
     "8787": {
