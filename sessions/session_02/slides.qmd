@@ -28,6 +28,7 @@ library(tidyverse)
 library(modelsummary)
 library(broom)
 library(flextable)
+library(kableExtra)
 
 cps_raw <- read_csv("data/morg-2014-emp.csv")
 
@@ -111,39 +112,6 @@ modelsummary(
 
 ---
 
-## Common issues: raw output {.smaller}
-
-```{r}
-#| echo: true
-#| eval: true
-
-modelsummary(list(m1, m2, m3), gof_map = c("nobs", "r.squared"))
-```
-
-Column headers auto-named; row labels are raw R names: `age_sq`, `(Intercept)`, `college`
-
----
-
-## Common issues: polished output {.smaller}
-
-```{r}
-#| echo: true
-#| eval: true
-#| code-line-numbers: "2|3-7|8|9"
-
-modelsummary(
-  list("M1: Age" = m1, "M2: Quadratic" = m2, "M3: Full model" = m3),
-  coef_map = c("age"         = "Age",
-               "age_sq"      = "Age²",
-               "uhours"      = "Weekly hours",
-               "college"     = "College degree",
-               "(Intercept)" = "Constant"),
-  gof_map  = c("nobs", "r.squared"),
-  notes    = "CPS 2014. Market research analysts, age 24–64."
-)
-```
-
----
 
 ## Common issues: interpretation
 
@@ -168,31 +136,108 @@ Always answer: compared to *whom*? By *how much*? In *what units*? Holding *what
 
 ---
 
-## Model comparison: `modelsummary` upgrade {.smaller}
+## Two new tools for Session 2
+
+**From Task 1 onwards you explored results using raw R output.**
+
+Session 2 introduces two tools that turn raw output into **presentation-ready tables:**
+
+. . .
+
+| Tool | Purpose |
+|---|---|
+| `modelsummary` | Regression tables — one function for all models |
+| `flextable` | Data summaries — any tibble, cleanly formatted |
+
+. . .
+
+Both render in HTML and PDF without any manual formatting.
+You will use both in **Take-home Task 2**.
+
+---
+
+## Raw output using `summary()`
 
 ```{r}
 #| echo: true
-#| eval: false
-#| code-line-numbers: "2|3-7|8|9|10"
+#| eval: true
+
+summary(m1)
+```
+
+. . .
+
+Not nice, not straightforward to compare several models
+
+## `modelsummary`: before {.smaller}
+
+```{r}
+#| echo: true
+#| eval: true
+
+modelsummary(list(m1, m2, m3), gof_map = c("nobs", "r.squared"))
+```
+
+Column headers auto-named; row labels are raw R names: `age_sq`, `(Intercept)`, `college`
+
+---
+
+## `modelsummary`: after {.smaller}
+
+```{r}
+#| echo: true
+#| eval: true
+#| code-line-numbers: "2|3-5|6|7"
 
 modelsummary(
-  list("Baseline" = m3, "Gender" = m4),
-  coef_map = c("age"         = "Age",
-               "age_sq"      = "Age²",
-               "uhours"      = "Weekly hours",
-               "college"     = "College degree",
-               "(Intercept)" = "Constant"),
-  gof_map  = c("nobs", "r.squared", "adj.r.squared"),
-  stars    = TRUE,
-  notes    = "CPS 2014. Market research analysts, age 24–64, ≥ 20 hrs/week."
+  list("M1: Age" = m1, "M2: Quadratic" = m2, "M3: Full model" = m3),
+  coef_map = c(
+    "age"="Age",  "age_sq"="Age²", "uhours" = "Weekly hours", 
+    "college" = "College degree", "(Intercept)" = "Constant"),
+  gof_map  = c("nobs", "r.squared"),
+  notes    = "CPS 2014. Market research analysts, age 24–64."
 )
 ```
 
+---
+
+## `flextable`: before {.smaller}
+
+**Without `flextable` — raw tibble printed to the console:**
+
+```{r}
+#| echo: true
+#| eval: true
+
+cps |>
+  group_by(edu_cat) |>
+  summarise(mean_earn = mean(earnwke))
+```
+
+→ R's default formatting: variable names as headers, too many decimals, no units.
+
+---
+
+## `flextable`: after {.smaller}
+
+```{r}
+#| echo: true
+#| eval: true
+
+cps |>
+  group_by(edu_cat) |>
+  summarise(`Mean weekly earnings (USD)` = round(mean(earnwke), 1)) |>
+  rename(`Education level` = edu_cat) |>
+  flextable() |>
+  theme_vanilla() |>
+  autofit()
+```
+
 ::: {.incremental}
-- **Line 2:** name your models → readable column headers
-- **Lines 3–7:** `coef_map` → rename rows *and* drop anything not listed
-- **Line 8:** `adj.r.squared` → penalises complexity, more honest than R² alone
-- **Line 10:** `notes` → source and sample description belongs in the table
+- **`rename()`** — readable column headers before passing to flextable
+- **`round()`** — control decimal places in the summary step
+- **`theme_vanilla()`** — clean, publication-style formatting
+- **`autofit()`** — adjusts column widths to content automatically
 :::
 
 ---
@@ -480,7 +525,8 @@ With interactions, "the effect of age" depends on the group.
 tidy(lm(earnwke ~ age * female, data = cps)) |>
   select(term, estimate, std.error, p.value) |>
   mutate(across(where(is.numeric), \(x) round(x, 3))) |>
-  knitr::kable(col.names = c("Term", "Estimate", "Std. Error", "p-value"))
+  knitr::kable(col.names = c("Term", "Estimate", "Std. Error", "p-value")) |>
+  kableExtra::kable_styling(font_size = 18)
 ```
 
 ```{r}
@@ -548,13 +594,13 @@ Download from OSF: [osf.io/4e6d8](https://osf.io/4e6d8/)
 
 **Assigned today — due 30 April 2026, 08:00**
 
-**Dataset:** English Premier League results and manager data, 2008/09–2018/19
+**Dataset:** Hotels Europe — prices and features across 46 European cities (Békés & Kézdi 2021)
 
 ::: {.incremental}
-- Formulate your own research question (e.g. does manager experience predict points?)
-- Estimate and compare multiple regression models
-- Present results with a clean `modelsummary` table
-- Identify one potential problem with your model — diagnose, don't fix
+- Build four regression models of increasing complexity (distance → city type → stars → interaction)
+- Use `modelsummary` for regression tables and `flextable` for descriptive statistics
+- Visualise the price–distance relationship before interpreting the model
+- Reflect critically on what your model leaves out
 :::
 
 . . .
@@ -570,7 +616,7 @@ Full task description distributed via **GitHub Classroom** (link on the course w
 **Questions during the break?**
 [GitHub Discussions](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
 
-**Task 2 deadline:** 30 April 2026, 08:00
+**Task 2 deadline:** 29 April 2026, 23:59
 
 . . .
 
