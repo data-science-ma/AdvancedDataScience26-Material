@@ -74,7 +74,7 @@ R, Quarto, basic linear regression — all from *Research Methodology* (Fall 202
 | Task | Due | Topic |
 |---|---|---|
 | Task 1 | 02 April, 23:59 | Regression basics (recap) |
-| Task 2 | 30 April, 23:59 | Extending a regression |
+| Task 2 | 29 April, 23:59 | Extending a regression |
 
 . . .
 
@@ -203,6 +203,38 @@ All of this happens in the **RStudio Git pane** — no command line necessary.
 
 ::: {.fragment}
 For a full introduction: [GitHub Skills — Introduction to GitHub](https://github.com/skills/introduction-to-github)
+:::
+
+---
+
+## Your coding environment: two options
+
+**Option A — Fork + Codespace**
+
+Codespaces are a cloud-based coding environment with everything pre-installed
+
+- No installation problems
+- Only works in the cloud, can be slower than local installation
+
+. . .
+
+Fork the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material) → your own copy on GitHub → open Codespace from your fork
+
+- RStudio runs in your browser, nothing to install
+- All packages pre-installed
+- You can save and commit your own work freely
+- When new materials arrive: **Sync fork** on GitHub → **Pull** in RStudio
+
+. . .
+
+**Option B — Local installation**
+
+Install R 4.4+, RStudio, and the required packages (see course website)
+
+. . .
+
+::: {.callout-tip}
+**First thing to do today:** go to the course repository and click **Fork**
 :::
 
 ---
