@@ -1,0 +1,346 @@
+---
+title: "Modelling Binary and Categorical Outcomes"
+subtitle: "Session 3 · Quantitative Data Analysis"
+author: "Claudius Gräbner-Radkowitsch"
+date: "2026-04-30"
+format:
+  revealjs:
+    theme: [default, ../../assets/custom.scss]
+    slide-number: true
+    progress: true
+    code-line-numbers: false
+    highlight-style: github
+    fig-align: center
+    self-contained: true
+    width: 1280
+    height: 720
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(modelsummary)
+library(marginaleffects)
+library(broom)
+library(ggpubr)
+```
+
+## Today's session {.center}
+
+::: {.incremental}
+1. **Debrief** — Take-home Task 2 *(30 min)*
+2. **Why OLS fails** for binary outcomes *(20 min)*
+3. **Logistic regression** — intuition and interpretation *(20 min)*
+4. **Live demo** with firm exit data *(45 min)*
+5. **Your turn** — exercise *(40 min)*
+6. **Debrief + Quarto skill** *(15 min)*
+:::
+
+
+# Debriefing the take home
+
+## Take-home Task 2: What we saw
+
+**Common strengths ✓**
+
+- TBD
+
+**Common issues to fix**
+
+- TBD
+
+**One question to reflect on:**  
+
+*You reported that education increases wage by 1,200 EUR. Is that a big effect?*
+
+# Binary outcome variables
+
+## The setup: binary outcomes in business 
+
+Many important business and economics questions have a **yes/no answer:**
+
+| Question | Outcome |
+|---|---|
+| Will this firm exit the market? | exit = 0 / 1 |
+| Did this customer churn? | churn = 0 / 1 |
+| Did a loan default? | default = 0 / 1 |
+| Was the job application successful? | hired = 0 / 1 |
+
+. . .
+
+::: {.fragment}
+What we really want to model is the **probability** of the event:
+
+$$P(\text{exit} = 1 \mid \text{firm size, profit, age, } \ldots)$$
+:::
+
+. . .
+
+::: {.fragment}
+The natural question: **can we just use OLS?**
+:::
+
+---
+
+## What OLS gives us — and why that's a problem
+
+```{r}
+#| echo: false
+#| fig-width: 9
+#| fig-height: 4.5
+set.seed(42)
+n <- 300
+x <- rnorm(n, mean = 5, sd = 2)
+p_true <- plogis(-2 + 0.7 * x)
+y <- rbinom(n, 1, p_true)
+df <- data.frame(x = x, y = y)
+
+p1 <- ggplot(df, aes(x, y)) +
+  geom_jitter(height = 0.03, alpha = 0.4, color = "#2c7bb6") +
+  geom_smooth(method = "lm", color = "#d7191c", se = FALSE, linewidth = 1.2) +
+  geom_hline(yintercept = c(0, 1), linetype = "dashed", color = "grey40") +
+  annotate("label", x = 1.5, y = -0.15, label = "Impossible!\nP < 0", 
+           color = "#d7191c", size = 3.5) +
+  annotate("label", x = 8.5, y = 1.15, label = "Impossible!\nP > 1", 
+           color = "#d7191c", size = 3.5) +
+  labs(title = "OLS (Linear Probability Model)",
+       x = "Predictor (e.g. log sales)", y = "P(exit = 1)") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold"))
+
+p2 <- ggplot(df, aes(x, y)) +
+  geom_jitter(height = 0.03, alpha = 0.4, color = "#2c7bb6") +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              color = "#1a9641", se = FALSE, linewidth = 1.2) +
+  geom_hline(yintercept = c(0, 1), linetype = "dashed", color = "grey40") +
+  labs(title = "Logistic Regression",
+       x = "Predictor (e.g. log sales)", y = "P(exit = 1)") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold"))
+
+ggarrange(p1, p2, ncol = 2)
+```
+
+. . . 
+
+::: {.callout-warning}
+OLS predictions can fall **outside [0, 1]** — mathematically impossible for probabilities.
+:::
+
+---
+
+## Two concrete problems with OLS on binary Y 
+
+::: columns
+::: {.column width="50%"}
+**Problem 1: Out-of-bounds predictions**
+
+- OLS fits a line → for extreme X values, $\hat{Y} < 0$ or $\hat{Y} > 1$
+- A "probability" of −0.12 or 1.34 is meaningless
+
+:::
+::: {.column width="50%"}
+**Problem 2: Heteroskedastic errors by construction**
+
+- If Y ∈ {0,1}, the variance of ε depends on X:
+$$\text{Var}(\varepsilon | x) = P(x)(1 - P(x))$$
+- OLS standard errors are invalid → inference is unreliable
+
+:::
+:::
+
+. . . 
+
+::: {.fragment}
+::: {.callout-note}
+**Historical note:** Economists often *do* use OLS on binary outcomes — the "Linear Probability Model" (LPM). It's a useful benchmark, especially with panel data. But you should know its limits.
+:::
+:::
+
+---
+
+## The solution: the logistic (sigmoid) function
+
+We need a function that maps **any real number → a probability in [0, 1]**
+
+$$\sigma(z) = \frac{e^z}{1 + e^z} = \frac{1}{1 + e^{-z}}$$
+
+```{r}
+#| echo: false
+#| fig-width: 8
+#| fig-height: 3.5
+z <- seq(-6, 6, length.out = 200)
+ggplot(data.frame(z = z, sigma = plogis(z)), aes(z, sigma)) +
+  geom_line(color = "#1a9641", linewidth = 1.5) +
+  geom_hline(yintercept = c(0, 0.5, 1), linetype = "dashed", color = "grey60") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey60") +
+  annotate("label", x = 5, y = 0.5, label = "σ(0) = 0.5", size = 4) +
+  labs(x = "z (log-odds)", y = "σ(z) = probability",
+       title = "The logistic function: maps any input to [0, 1]") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+::: {.fragment}
+→ We use this as our link: model $z = \beta_0 + \beta_1 x_1 + \ldots$ and then $\hat{P} = \sigma(z)$
+:::
+
+---
+
+## The logit model: what we actually estimate 
+
+Starting from $P = \sigma(\mathbf{X}\boldsymbol{\beta})$, rearranging gives:
+
+$$\ln\left(\frac{P}{1-P}\right) = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \ldots$$
+
+The left-hand side is the **log-odds** (also called the *logit*):
+
+| Quantity | Formula | Intuition |
+|---|---|---|
+| Probability | $P$ | Chance of exit (0–1) |
+| Odds | $\frac{P}{1-P}$ | "3:1 in favour" |
+| Log-odds | $\ln\left(\frac{P}{1-P}\right)$ | What regression models |
+
+::: {.fragment}
+**Example:** P(exit) = 0.75 → Odds = 3 → Log-odds = ln(3) ≈ 1.10
+:::
+
+::: {.fragment}
+**Estimation:** Not OLS, but **maximum likelihood** — find the β that makes the observed data most probable. R does this automatically with `glm()`.
+:::
+
+---
+
+## Interpreting logit coefficients: three levels 
+
+Suppose we get $\hat\beta_{\text{profit\_margin}} = -0.43$ from our firm exit model.
+
+. . .
+
+**Level 1 — Log-odds (raw output)**  
+A 1-unit increase in profit margin → log-odds of exit decrease by 0.43  
+✓ Direction is clear. ✗ Magnitude means nothing to most people.
+
+. . . 
+
+**Level 2 — Odds ratio** $= e^{\hat\beta} = e^{-0.43} \approx 0.65$  
+A 1-unit increase in profit margin → odds of exit are multiplied by 0.65 (a 35% reduction)  
+✓ Usable. ✗ "Odds" still confuse non-statisticians.
+
+. . .
+
+**Level 3 — Predicted probabilities (most useful for business)**  
+"A firm with median characteristics and a 10% profit margin has a 22% chance of exit.  
+If that margin drops to −5%, the probability rises to 38%."  
+✓ Immediately actionable. ✓ Works for non-technical audiences.
+
+. . .
+
+::: {.fragment}
+::: {.callout-tip}
+**Rule of thumb:** Always translate your findings into predicted probabilities for a business audience.
+:::
+:::
+
+---
+
+## How to compute predicted probabilities in R
+
+```{r}
+#| eval: false
+# Fit the model
+model <- glm(exit ~ profit_margin + sales_log + employees_log,
+             family = binomial,
+             data = firms)
+
+# Predicted probabilities for observed data
+firms$pred_prob <- predict(model, type = "response")
+
+# Predicted probability for a specific scenario
+new_firm <- data.frame(
+  profit_margin = c(0.10, -0.05),   # profitable vs loss-making
+  sales_log     = c(10, 10),        # same size
+  employees_log = c(3, 3)           # same size
+)
+
+predict(model, newdata = new_firm, type = "response")
+```
+
+. . . 
+
+::: {.callout-note}
+`type = "response"` gives probabilities. `type = "link"` gives log-odds (the default — easy mistake!).
+:::
+
+---
+
+## Quarto skill this session: inline R code
+
+Instead of writing "the odds ratio is 0.65" manually, embed the computation:
+
+```markdown
+The odds ratio for profit margin is
+`{{r}} round(exp(coef(model)["profit_margin"]), 2)`.
+```
+
+::: {.fragment}
+This renders as: *"The odds ratio for profit margin is 0.65."*
+
+Why does this matter?
+
+- If you update your model or data → **the number updates automatically**
+- No copy-paste errors between your model and your text
+- Reproducible, professional output
+:::
+
+---
+
+## Live demo {.center}
+
+*Switching to `demo.qmd`*
+
+**We will:**
+
+1. Explore the `bisnode-firms` dataset
+2. Fit a Linear Probability Model as a benchmark
+3. Fit a logistic regression
+4. Interpret: log-odds → odds ratios → predicted probabilities
+5. Compare LPM and logit side-by-side with `modelsummary()`
+6. Write inline R code to report a key finding
+
+---
+
+## Your turn: exercise {.center}
+
+*Open `exercise.qmd` from GitHub Classroom*
+
+**You will:**
+
+- Extend the logistic model with additional predictors
+- Interpret your coefficients (all three levels)
+- Compute predicted probabilities for two contrasting firm profiles
+- Write one paragraph reporting your key finding using **inline R code**
+
+*Work individually or in pairs. I'll circulate. ~40 minutes.*
+
+---
+
+## Key takeaways 
+
+::: {.incremental}
+- When Y is binary, we model **P(Y=1|X)** — not Y directly
+- **OLS fails** because it produces out-of-bounds predictions and invalid standard errors
+- **Logistic regression** uses the sigmoid function to guarantee $\hat{P} \in [0,1]$
+- Coefficients are in **log-odds space** — always translate to probabilities for interpretation
+- Use `glm(..., family = binomial)` in R; use `predict(..., type = "response")` for probabilities
+- **Inline R code** makes your results reproducible and error-proof
+:::
+
+::: {.fragment}
+**Next session (May 7):** *What can go wrong — biases and diagnostics*  
+We'll look at multicollinearity, heteroskedasticity, influential observations, and how to detect them.
+:::

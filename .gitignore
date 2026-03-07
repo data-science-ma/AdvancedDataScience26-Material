@@ -16,3 +16,8 @@
 renv/
 .Rprofile
 
+# Session data — raw panel and prep script (large files, local use only)
+sessions/session_03/data/cs_bisnode_panel.csv
+sessions/session_03/data/bisnode_variable_names.xls
+sessions/session_03/data/prepare_bisnode.R
+
