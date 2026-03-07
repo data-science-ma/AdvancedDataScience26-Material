@@ -10,11 +10,13 @@ format:
     slide-number: true
     progress: true
     embed-resources: true
-    mermaid-format: svg
+    mermaid-format: png
     footer: "Adv. Data Science & Econometrics 2026 | Session 1"
     width: 1280
     height: 720
 ---
+
+# Logistics
 
 ## What is this course?
 
@@ -63,7 +65,7 @@ R, Quarto, basic linear regression — all from *Research Methodology* (Fall 202
 
 **Take-home tasks** (mandatory, pass/fail)
 
-- Two structured analyses submitted as Quarto HTML reports
+- Two structured analyses submitted as rendered Quarto reports (task 1 as html, task 2 as pdf)
 - Assigned during the conference/unavailable periods — that time is for you
 - Submit via **GitHub Classroom**
 
@@ -71,8 +73,8 @@ R, Quarto, basic linear regression — all from *Research Methodology* (Fall 202
 
 | Task | Due | Topic |
 |---|---|---|
-| Task 1 | 02 April, 08:00 | Regression basics |
-| Task 2 | 30 April, 08:00 | Extending a regression |
+| Task 1 | 02 April, 23:59 | Regression basics (recap) |
+| Task 2 | 30 April, 23:59 | Extending a regression |
 
 . . .
 
@@ -80,130 +82,6 @@ R, Quarto, basic linear regression — all from *Research Methodology* (Fall 202
 
 - Open-book, on-site, individual
 - Details confirmed later in the semester
-
----
-
-## How this course works
-
-<br>
-
-**Where you code:** GitHub Codespaces — RStudio in your browser, zero installation
-
-- Alternative: install R Studio and packages locally (as in the previous course)
-
-. . .
-
-**Where you ask questions:** GitHub Discussions on the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
-*(not email, not Moodle — so everyone benefits from the answer)*
-
-**Where you submit:** GitHub Classroom for tasks; Moodle for final exam
-
-. . .
-
-**What you need:**
-
-- A GitHub account (free)
-- GitHub Student Developer Pack (recommended — free professional tools)
-- Nothing else except excitement 😉
-
----
-
-## Today's plan
-
-<br>
-
-| Time | Block |
-|---|---|
-| 16:00–16:20 | Welcome, course overview, assessment |
-| 16:20–17:00 | Quarto upgrade: live demo document |
-| 17:00–17:15 | Questions and break |
-| 17:15–18:15 | Student exercise |
-| 18:15–19:00 | Introduce Task 1, Q&A |
-
-<br>
-
-. . .
-
-The exercise today is about **workflow setup**, not data analysis.
-
-→ No dataset required — we are building a Quarto template for later
-
----
-
-## Quarto in this course
-
-**Why Quarto matters:**
-
-- Code and text in one place — no copy-pasting numbers into Word
-- Results update automatically when data or code changes
-- Renders to HTML, PDF, Word — same source file
-
-. . .
-
-**The standard we set today applies to every submission:**
-
-- Proper YAML front matter
-- Numbered sections, table of contents
-- Bibliography with BibTeX citations
-- Clean, commented code chunks
-
----
-
-## Git: the four things you need
-
-```{mermaid}
-flowchart LR
-  A["📁<br/>Working directory"] -->|"Stage (Git pane)"| B["📋<br/>Staging area"]
-  B -->|"Commit (+ message)"| C["💾<br/>Local repository"]
-  C -->|"Push"| D["☁️<br/>GitHub (remote)"]
-  D -->|"Pull"| A
-
-  style A fill:#f4f6f8,stroke:#00395B
-  style B fill:#f4f6f8,stroke:#69AACD
-  style C fill:#f4f6f8,stroke:#00395B
-  style D fill:#00395B,color:#ffffff,stroke:#00395B
-```
-
-**You only need these four actions.** No branching, no merging.
-
-All of this happens in the **RStudio Git pane** — no command line.
-
-::: {.fragment}
-For a full introduction: [GitHub Skills — Introduction to GitHub](https://github.com/skills/introduction-to-github)
-:::
-
----
-
-## Quarto upgrade: live demo document
-
-- I will develop a Quarto document as a demo
-- We will also use it to demonstrate how GitHub classroom works
-- You do not need to make any notes, everything will be made available
-- You can do the test for GitHub classroom yourself at home using the link from the website
-
-## Take-home task 1
-
-**You are an analyst producing a briefing on global development patterns.**
-
-. . .
-
-**Dataset:** World Bank — life expectancy and GDP per capita, 182 countries, 2017
-Download from OSF: [osf.io/pguwf](https://osf.io/pguwf/)
-
-**Five tasks:**
-
-1. Load and explore — summary statistics, two plots
-2. Simple regression: life expectancy ~ GDP per capita — interpret the coefficient
-3. Log-transform GDP — does fit improve? Why?
-4. Add one variable, compare models with a `modelsummary` table
-5. Write a 150-word plain-language summary for a non-technical reader
-
-. . .
-
-**Deadline:** 02 April 2026, 08:00
-**Submit:** GitHub Classroom (link will be added soon)
-
-[GitHub Classroom link — to be added]{.muted}
 
 ---
 
@@ -226,6 +104,140 @@ The two weeks are designed for exactly this.
 
 ---
 
+## How this course works
+
+<br>
+
+**Where you code:** GitHub Codespaces — RStudio in your browser, zero installation
+
+- Alternative: install R Studio and packages locally (as in the previous course)
+
+. . .
+
+**Where you ask questions:** GitHub Discussions on the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
+*(not email, not Moodle — so everyone benefits from the answer)*
+
+. . . 
+
+**Where you submit:** GitHub Classroom
+
+. . .
+
+**What you need:**
+
+- A GitHub account (free)
+- GitHub Student Developer Pack (recommended — free professional tools)
+- Nothing else except excitement 😉
+
+---
+
+## Today's plan
+
+<br>
+
+| Time | Block |
+|---|---|
+| 16:00–16:20 | Welcome, course overview, assessment |
+| 16:20–17:00 | Quarto and Git upgrade: live demo document |
+| 17:00–17:15 | Questions and break |
+| 17:15–18:15 | Student exercise |
+| 18:15–19:00 | Introduce Task 1, Q&A |
+
+<br>
+
+. . .
+
+The exercise today is about **workflow setup**, not data analysis.
+
+→ No dataset required — we are building a Quarto template for later
+
+---
+
+# Quarto and Git(Hub)
+
+## Quarto in this course
+
+**Why Quarto matters:**
+
+- Code and text in one place — no copy-pasting numbers into Word
+- Results update automatically when data or code changes
+- Renders to HTML, PDF, Word — same source file
+
+. . .
+
+**The standard we set today applies to every submission:**
+
+- Proper YAML front matter
+- Numbered sections, table of contents
+- Bibliography with BibTeX citations
+- Clean, commented code chunks
+
+---
+
+## Git: the four things you need
+
+- GitHub is a platform of great importance - more than ever in the AI era
+
+. . . 
+
+```{mermaid}
+flowchart LR
+  A["📁<br/>Working directory"] -->|"Stage (Git pane)"| B["📋<br/>Staging area"]
+  B -->|"Commit (+ message)"| C["💾<br/>Local repository"]
+  C -->|"Push"| D["☁️<br/>GitHub (remote)"]
+  D -->|"Pull"| A
+
+  style A fill:#f4f6f8,stroke:#00395B
+  style B fill:#f4f6f8,stroke:#69AACD
+  style C fill:#f4f6f8,stroke:#00395B
+  style D fill:#00395B,color:#ffffff,stroke:#00395B
+```
+
+. . . 
+
+**You only need these four actions.** No branching, no merging.
+
+All of this happens in the **RStudio Git pane** — no command line necessary.
+
+. . . 
+
+::: {.fragment}
+For a full introduction: [GitHub Skills — Introduction to GitHub](https://github.com/skills/introduction-to-github)
+:::
+
+---
+
+## Quarto upgrade: live demo document
+
+- I will develop a Quarto document as a demo
+- We will also use it to demonstrate how GitHub classroom works
+- You do not need to make any notes, everything will be made available
+- You can do the test for GitHub classroom yourself at home using the link from the website
+
+# Notes on take-home task 1
+
+## Take-home task 1
+
+**What determines weekly earnings of market research analysts in the United States?**
+
+. . .
+
+**Dataset:** U.S. Current Population Survey (CPS MORG), 2014 — market research analysts and marketing specialists
+
+**Four tasks:**
+
+1. Clean the data and produce a descriptive statistics table
+2. Simple regression: earnings ~ age — visualise and interpret
+3. Quadratic extension: add age² — does fit improve? Where do earnings peak?
+4. Add controls: hours worked and college degree — discuss omitted variable bias
+
+. . .
+
+**Deadline:** 02 April 2026, 23:59
+**Submit:** GitHub Classroom (link is on website)
+
+---
+
 ## See you on 9 April
 
 **Next session:** Thu, 09 April — *Multiple regression: going beyond the basics*
@@ -233,7 +245,7 @@ The two weeks are designed for exactly this.
 **Questions during the break?**
 [GitHub Discussions](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions) on the course repository
 
-**Task 1 deadline:** 02 April 2026, 08:00
+**Task 1 deadline:** 02 April 2026, 23:59
 
 . . .
 
