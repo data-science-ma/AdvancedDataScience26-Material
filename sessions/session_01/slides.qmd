@@ -66,7 +66,7 @@ R, Quarto, basic linear regression — all from *Research Methodology* (Fall 202
 **Take-home tasks** (mandatory, pass/fail)
 
 - Two structured analyses submitted as rendered Quarto reports (task 1 as html, task 2 as pdf)
-- Assigned during the conference/unavailable periods — that time is for you
+- Assigned during breaks — self-organize and use the discussion space
 - Submit via **GitHub Classroom**
 
 . . .
@@ -112,6 +112,10 @@ The two weeks are designed for exactly this.
 
 - Alternative: install R Studio and packages locally (as in the previous course)
 
+  - Advantage: faster, works offline, more independence
+  - Disadvantage: potential challenges during installation
+  - See tutorials from [previous course](https://researchmethodology-fall25.netlify.app/content/tutorials)
+
 . . .
 
 **Where you ask questions:** GitHub Discussions on the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
@@ -127,7 +131,6 @@ The two weeks are designed for exactly this.
 
 - A GitHub account (free)
 - GitHub Student Developer Pack (recommended — free professional tools)
-- Nothing else except excitement 😉
 
 ---
 
@@ -138,7 +141,7 @@ The two weeks are designed for exactly this.
 | Time | Block |
 |---|---|
 | 16:00–16:20 | Welcome, course overview, assessment |
-| 16:20–17:00 | Quarto and Git upgrade: live demo document |
+| 16:20–17:00 | Quarto and Git upgrade: live demo |
 | 17:00–17:15 | Questions and break |
 | 17:15–18:15 | Student exercise |
 | 18:15–19:00 | Introduce Task 1, Q&A |
@@ -151,34 +154,45 @@ The exercise today is about **workflow setup**, not data analysis.
 
 → No dataset required — we are building a Quarto template for later
 
----
-
 # Quarto and Git(Hub)
 
 ## Quarto in this course
+
+**What Quarto is:**
+
+- A next-generation scientific publishing system
+- Write narrative text, R code, and output (tables, figures) in a single `.qmd` document
+
+. . . 
 
 **Why Quarto matters:**
 
 - Code and text in one place — no copy-pasting numbers into Word
 - Results update automatically when data or code changes
 - Renders to HTML, PDF, Word — same source file
+- Professional standard for reproducible, shareable data analysis in academia and industry
 
 . . .
 
 **The standard we set today applies to every submission:**
 
-- Proper YAML front matter
-- Numbered sections, table of contents
-- Bibliography with BibTeX citations
-- Clean, commented code chunks
+- Proper front matter, bibliography, clean and well-readable output
 
 ---
 
-## Git: the four things you need
+## Git and GitHub
 
-- GitHub is a platform of great importance - more than ever in the AI era
+- Git: a **version control system**: tacks changes you make to your files
+  - Always see who did what when - and roll back if needed 
 
 . . . 
+
+- GitHub: stores the Git info on a cloud and facilitates publishing and collaboration
+  - A platform of great importance - more than ever in the AI era
+
+---
+
+## Git: key concepts {.smaller}
 
 ```{mermaid}
 flowchart LR
@@ -195,17 +209,35 @@ flowchart LR
 
 . . . 
 
-**You only need these four actions.** No branching, no merging.
+::: {.incremental}
+- **Repository** ('repo'): a folder for which you tack changes via Git
+  - **Fork** (of a repo): your personal copy of someone else's repo 
+- Key Git actions:
+  - **Stage:** Mark changes to include into next snapshot
+  - **Commit:** Save named snapshot of all staged changes
+  - **Revert:** Roll back to the state of a previous commit
+- Additional actions if Github is involved:
+  - **Push:** Send your local changes to GitHub
+  - **Fetch:** Check what has changed on Github
+  - **Pull:** Fetch and apply remote changes to your local repo
+:::
 
-All of this happens in the **RStudio Git pane** — no command line necessary.
+## Git: key concepts
+
+::: {.incremental}
+- **These five actions are essential.** 
+  - Branching and merging is 'only' super useful
+- All can be done through the **RStudio Git pane** — no command line necessary.
+:::
 
 . . . 
 
-::: {.fragment}
+::: {.callout-tip}
 For a full introduction: [GitHub Skills — Introduction to GitHub](https://github.com/skills/introduction-to-github)
 :::
 
 ---
+
 
 ## Your coding environment: two options
 
@@ -213,15 +245,13 @@ For a full introduction: [GitHub Skills — Introduction to GitHub](https://gith
 
 Codespaces are a cloud-based coding environment with everything pre-installed
 
-- No installation problems
-- Only works in the cloud, can be slower than local installation
+- No installation problems, but only works in the cloud and slower than local installation
 
 . . .
 
 Fork the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material) → your own copy on GitHub → open Codespace from your fork
 
-- RStudio runs in your browser, nothing to install
-- All packages pre-installed
+- RStudio runs in your browser, nothing to install, all packages pre-installed
 - You can save and commit your own work freely
 - When new materials arrive: **Sync fork** on GitHub → **Pull** in RStudio
 
