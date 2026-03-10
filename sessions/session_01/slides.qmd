@@ -276,6 +276,34 @@ Install R 4.4+, RStudio, and the required packages (see course website)
 - You do not need to make any notes, everything will be made available
 - You can do the test for GitHub classroom yourself at home using the link from the website
 
+# Q&A and Break
+
+# Student Exercise
+
+## Student Exercise
+
+<br>
+
+::: {.callout-tip}
+Register at GitHub if not already one
+:::
+
+::: {.incremental}
+1. Go to the website
+2. Accept the Classroom student example exercise
+3. Do the exercise 
+4. Commit and push your solution in the end
+:::
+
+. . .
+
+Ask questions whenever they occur
+
+. . .
+
+After 18:15 we clarify remaining issues
+
+
 # Notes on take-home task 1
 
 ## Take-home task 1
