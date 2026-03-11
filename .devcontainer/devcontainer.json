@@ -2,6 +2,7 @@
   "name": "Advanced Data Science 2026",
   "image": "rocker/verse:4.4.2",
   "postCreateCommand": "R -q -e \"install.packages(c('plm','modelsummary','fixest','lmtest','sandwich','patchwork','tidyverse','broom','flextable','gapminder','ggrepel','here','marginaleffects','WDI','tinytex'), repos='https://cloud.r-project.org')\"",
+  "postStartCommand": "/usr/lib/rstudio-server/bin/rserver --server-daemonize=0 &",
   "forwardPorts": [8787],
   "portsAttributes": {
     "8787": {
