@@ -251,8 +251,9 @@ Codespaces are a cloud-based coding environment with everything pre-installed
 
 Fork the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material) → your own copy on GitHub → open Codespace from your fork
 
-- RStudio runs in your browser, nothing to install, all packages pre-installed
+- In the VS Code terminal, type `rserver` → login: username **`rstudio`**, password **`rstudio`**
 - You can save and commit your own work freely
+- **Next session:** open your existing Codespace at [github.com/codespaces](https://github.com/codespaces) — do not create a new one
 - When new materials arrive: **Sync fork** on GitHub → **Pull** in RStudio
 
 . . .

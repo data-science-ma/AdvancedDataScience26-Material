@@ -46,24 +46,26 @@ Codespace** — a cloud-based RStudio session that runs entirely in your browser
 
 ### How to start a Codespace
 
-1. Click the green **Code** button at the top of this repository page and
+**Fork this repository first** — click **Fork** in the top-right corner of this page to create your own personal copy. All steps below apply to your fork, not the shared course repository.
+
+1. On your fork's page, click the green **Code** button and
    select **Open with Codespaces → New codespace**
 2. A **VS Code window** opens in your browser — this is normal. Do not close
-   it. RStudio runs inside the same environment, on a separate port.
+   it.
 3. **The first time you create a Codespace, setup takes up to 5 minutes.**
    R and all required packages are downloaded and installed automatically.
    You can watch progress in the terminal at the bottom of the VS Code window.
-4. Once the environment is ready, a second browser tab with **RStudio Server**
-   should open automatically. If it does not, click the **Ports** tab at the
-   bottom of the VS Code window, find port **8787**, and click the globe icon
-   next to it. No login is required — RStudio opens directly.
+4. Once setup is complete, type **`rserver`** in the VS Code terminal and press
+   **Enter**. When the login prompt appears, enter **`rstudio`** as both the
+   username and the password.
 5. **Important:** even after RStudio opens, package installation may still be
-   running in the background. Wait until the terminal in VS Code shows a plain
-   command prompt (no spinner, no scrolling output) before loading packages in
-   R — otherwise some may not yet be available.
+   running in the background. Wait until the terminal shows a plain command
+   prompt (no spinner, no scrolling output) before loading packages in R.
 
-> Subsequent starts of the same Codespace are fast — the image is cached and
-> packages are already installed. Only the very first creation takes long.
+> **Next time:** do not create a new Codespace — go to
+> [github.com/codespaces](https://github.com/codespaces), find your existing
+> Codespace, and click **Open**. Creating a new Codespace means any uncommitted
+> work is lost.
 >
 > Codespace hours are free for students via the GitHub Student Developer Pack.
 > Close your Codespace when you are not using it to avoid consuming your free
@@ -71,25 +73,19 @@ Codespace** — a cloud-based RStudio session that runs entirely in your browser
 
 ### A note on saving your work
 
-The Material repo Codespace is for **running in-class exercises**. Because this
-is a shared course repository, you do not have permission to push changes back
-to it — and you should not need to.
+Because you work in your own fork, you have full permission to commit and push
+your changes. Your work is also preserved in the Codespace between sessions as
+long as the Codespace exists — which is why you should always **open the
+existing Codespace** rather than creating a new one.
 
-Your work is preserved in the Codespace between sessions as long as the
-Codespace exists. If you delete the Codespace, any local changes are lost.
+If you accidentally delete your Codespace, any committed and pushed work is
+still safe on GitHub. Uncommitted changes, however, are lost.
 
-### Getting your own copy for home use
+### Syncing new session materials
 
-If you want a personal copy of the course materials that you can edit, save,
-and use freely — **fork this repository**.
-
-1. Click **Fork** in the top-right corner of this page on GitHub
-2. GitHub creates a copy of this repo under your own account
-3. Open a Codespace from your fork — the environment is identical, and you can
-   commit and push your own changes freely
-4. When new session materials are added to this repo, click **Sync fork** on
-   your fork's GitHub page, then **Pull** in the RStudio Git pane to receive
-   the updates
+When new materials are added to the course repository, click **Sync fork** on
+your fork's GitHub page, then **Pull** in the RStudio Git pane to receive the
+updates.
 
 Take-home tasks work differently: when you accept a task via GitHub Classroom,
 you get your **own personal copy** of the assignment repository. Commits from
