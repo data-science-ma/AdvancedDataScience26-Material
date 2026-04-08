@@ -113,34 +113,28 @@ modelsummary(
 ---
 
 
-## Common issues: interpretation
+## Things to flag
 
-**Too vague:**
-*"The college coefficient is 128.4."*
-
+::: {.incremental}
+- How extensively did you use Git _during your actual work_?
 . . .
-
-**Too mechanical:**
-*"When college equals one, earnings increase by 128.4, holding other variables constant."*
-
-. . .
-
-**Good:**
-*"Analysts with at least a college degree earn, on average, approximately $128 more per week than those without, holding age and weekly hours constant."*
-
-. . .
-
-::: {.callout-tip}
-Always answer: compared to *whom*? By *how much*? In *what units*? Holding *what* constant?
+  - Staging, committing, and pushing extremely useful
+  - For advanced applications: have a look at branching
+- Avoid hard coding results
+  - Not: `The estimated intercept of 724.71 USD...`
+  - Better: `The estimated intercept of` r  round(coef(model1)[1], 2) `USD...`
+- Use AI - but in a smart way
+  - Style issues $\rightarrow$ work outline-based
+  - Always check correctness (e.g. caption title)
+  - **Always document** the use of AI
 :::
-
 ---
 
 ## Two new tools for Session 2
 
-**From Task 1 onwards you explored results using raw R output.**
 
-Session 2 introduces two tools that turn raw output into **presentation-ready tables:**
+
+Tools that turn raw output into **presentation-ready tables:**
 
 . . .
 
@@ -152,7 +146,7 @@ Session 2 introduces two tools that turn raw output into **presentation-ready ta
 . . .
 
 Both render in HTML and PDF without any manual formatting.
-You will use both in **Take-home Task 2**.
+Use both in **Take-home Task 2**.
 
 ---
 
@@ -545,7 +539,9 @@ b <- coef(lm(earnwke ~ age * female, data = cps))
 
 . . .
 
+
 $$\frac{\partial \text{earnwke}}{\partial \text{age}} = \hat{\beta}_\text{age} + \hat{\beta}_{\text{age:female}} \times \text{female}$$
+
 
 → Always report group-specific slopes — the interaction coefficient alone is difficult to communicate.
 
