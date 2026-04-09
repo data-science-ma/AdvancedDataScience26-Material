@@ -119,7 +119,7 @@ The two weeks are designed for exactly this.
 . . .
 
 **Where you ask questions:** GitHub Discussions on the [course repository](https://github.com/data-science-ma/AdvancedDataScience26-Material/discussions)
-*(not email, not Moodle — so everyone benefits from the answer)*
+*(not email, not Moodle — so everyone benefits from the answer; make sure to enable notifications as explained [here](https://github.com/data-science-ma/AdvancedDataScience26-Material?tab=readme-ov-file#activate-email-notifications))*
 
 . . . 
 
