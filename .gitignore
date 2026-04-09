@@ -4,6 +4,7 @@
 .Ruserdata
 .Renviron
 **/.DS_Store
+README.html
 
 # Quarto build artefacts
 /.quarto/

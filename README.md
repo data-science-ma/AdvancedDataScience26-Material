@@ -10,8 +10,6 @@
 
 To save slides as PDF: open the slide HTML in Chrome or Edge, click ☰ (bottom-left) → Tools → PDF Export Mode, then **File → Print → Save as PDF**. Alternatively, add `?print-pdf` to the end of the URL and print from there.
 
-
-
 [quantitative-data-analysis-spring26.netlify.app](https://quantitative-data-analysis-spring26.netlify.app)
 
 ---
@@ -132,6 +130,22 @@ If a reply solves your problem, click **Mark as answer** — this helps classmat
 ### Response times
 
 The instructor monitors Discussions regularly, including during the take-home task periods. Expect a reply within 48 hours on weekdays.
+
+### Activate email notifications
+
+To make sure you get notified a new discussion is opened, I strongly recomment to set notification settings as follows:
+
+1. On the repository page on Github click on the `Watch` button shown below and either choose `All activity` or `Custom` and activate `Discussions`.
+
+<p align="center">
+  <img src="assets/Watch-Button.png" alt="The watch button on Github" width="400">
+</p>
+
+2. Click on your profile on the top right, as shown below, and then go to the `Settings` button. Then go to the `Notifications` part, and in the `Subscriptions` part, set for the `Watching` category the notification channels that work for you.
+
+<p align="center">
+  <img src="assets/Settings-Button.png" alt="The settings button on Github" width="200">
+</p>
 
 ---
 
