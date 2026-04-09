@@ -288,7 +288,7 @@ A variable that takes a **finite set of named values** — not a continuous scal
 
 R picks one category as the **reference group** and creates one binary (0/1) indicator for each remaining category.
 
-**Example:** Gender (reference = Male)
+**Example:** Gender (reference = Female)
 
 | Person | Sex | `female` |
 |--------|-----|---------------|
