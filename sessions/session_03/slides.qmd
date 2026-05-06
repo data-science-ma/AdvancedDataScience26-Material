@@ -32,30 +32,381 @@ library(ggpubr)
 ## Today's session {.center}
 
 ::: {.incremental}
-1. **Debrief** — Take-home Task 2 *(30 min)*
-2. **Why OLS fails** for binary outcomes *(20 min)*
-3. **Logistic regression** — intuition and interpretation *(20 min)*
-4. **Live demo** with firm exit data *(45 min)*
-5. **Your turn** — exercise *(40 min)*
-6. **Debrief + Quarto skill** *(15 min)*
+1. **Debrief** — Take-home Task 2 
+2. **Input lecture:** Why OLS fails for binary outcomes 
+3. **Input lecture:** Logistic regression — intuition and interpretation 
+4. **Live demo** with firm exit data 
+5. **In-class exercise** — exercise 
+6. **Debrief** 
 :::
 
 
 # Debriefing the take home
 
-## Take-home Task 2: What we saw
+```{r}
+#| label: setup
+#| include: false
 
-**Common strengths ✓**
+library(tidyverse)
+library(patchwork)
+library(broom)
 
-- TBD
+# Data: hotels-europe from Task 2 submission
+# Path is relative to sessions/session_03/ when Quarto renders
+hotels_raw <- read_csv(
+  "../../../Assignments/Task-02-Submissions/TJ/hotels-europe.csv",
+  show_col_types = FALSE
+)
 
-**Common issues to fix**
+capitals <- c(
+  "Amsterdam", "Athens", "Berlin", "Brussels", "Bucharest",
+  "Budapest", "Copenhagen", "Dublin", "Helsinki", "Lisbon",
+  "Ljubljana", "London", "Madrid", "Nicosia", "Oslo",
+  "Paris", "Prague", "Riga", "Rome", "Sofia",
+  "Stockholm", "Tallinn", "Vienna", "Vilnius", "Warsaw", "Zagreb"
+)
 
-- TBD
+hotels <- hotels_raw |>
+  filter(year == 2017, month == 11, weekend == 0) |>
+  filter(stars %in% c(3, 4, 5)) |>
+  filter(accommodation_type == "Hotel") |>
+  drop_na(price, distance) |>
+  filter(distance > 0) |>
+  mutate(capital = ifelse(city %in% capitals, 1, 0)) |>
+  mutate(
+    capital = factor(capital, levels = c(0, 1),
+                     labels = c("Non-capital", "Capital")),
+    stars   = factor(stars, levels = c(3, 4, 5),
+                     labels = c("3 stars", "4 stars", "5 stars"))
+  ) |>
+  filter(price <= quantile(price, 0.99))
 
-**One question to reflect on:**  
+m_level <- lm(price        ~ distance,        data = hotels)
+m_log   <- lm(log(price)   ~ log(distance),   data = hotels)
+m_inter <- lm(log(price)   ~ log(distance) * capital + stars, data = hotels)
+```
 
-*You reported that education increases wage by 1,200 EUR. Is that a big effect?*
+## What went well
+
+- Both submissions: correct data cleaning pipeline, good use of inline R, sensible conclusions
+
+. . .
+
+::: {.callout-tip}
+Inline R for all reported numbers, dynamic cross-references, and a clean Quarto workflow — these are good professional standards!
+:::
+
+---
+
+## Three things to take forward
+
+<br>
+
+**1. Log transformation** 
+
+- When and why to transform; what the elasticity interpretation buys you
+
+. . .
+
+**2. Equations must match code**
+
+- A document that says one thing and does another is perceived as unreliable
+
+. . .
+
+**3. A non-significant result is a result**
+
+- The interaction we tested was not significant — that is a finding, not a failure
+
+# Why the log transformation?
+
+## The question we always ask first
+
+**Business question:** Does location predict hotel price?
+
+. . .
+
+The naive answer: fit a line through `price ~ distance`.
+
+. . .
+
+::: {.callout-warning}
+Before modelling, always ask: *does a straight line make sense here?*
+:::
+
+---
+
+## The problem with levels
+
+```{r}
+#| label: fig-levels
+#| fig-width: 9
+#| fig-height: 4.5
+#| echo: false
+
+ggplot(hotels, aes(x = distance, y = price)) +
+  geom_point(alpha = 0.18, size = 0.9, colour = "#69AACD") +
+  geom_smooth(method = "lm", colour = "#E65032", linewidth = 1.1, se = TRUE) +
+  labs(
+    title = "Level–level: the straight line does not fit well",
+    x = "Distance from city centre (km)",
+    y = "Price per night (USD)"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+---
+
+## The fix: log–log
+
+```{r}
+#| label: fig-logs
+#| fig-width: 9
+#| fig-height: 4.5
+#| echo: false
+
+ggplot(hotels, aes(x = log(distance), y = log(price))) +
+  geom_point(alpha = 0.18, size = 0.9, colour = "#69AACD") +
+  geom_smooth(method = "lm", colour = "#5FB46E", linewidth = 1.1, se = TRUE) +
+  labs(
+    title = "Log–log: more linear, more homoskedastic",
+    x = "ln(Distance from city centre)",
+    y = "ln(Price per night)"
+  ) +
+  theme_minimal(base_size = 14)
+```
+
+- The point cloud is much more symmetric around the line
+- Variance is roughly similar across the full range of distances
+- The slope now has a clean interpretation: a **price elasticity**
+
+---
+
+## Side by side
+
+```{r}
+#| label: fig-comparison
+#| fig-width: 11
+#| fig-height: 4.2
+#| echo: false
+
+p_level <- ggplot(hotels, aes(x = distance, y = price)) +
+  geom_point(alpha = 0.15, size = 0.7, colour = "#69AACD") +
+  geom_smooth(method = "lm", colour = "#E65032", linewidth = 1, se = TRUE) +
+  labs(title = "Level–level", x = "Distance (km)", y = "Price (USD)") +
+  theme_minimal(base_size = 12)
+
+p_log <- ggplot(hotels, aes(x = log(distance), y = log(price))) +
+  geom_point(alpha = 0.15, size = 0.7, colour = "#69AACD") +
+  geom_smooth(method = "lm", colour = "#5FB46E", linewidth = 1, se = TRUE) +
+  labs(title = "Log–log", x = "ln(Distance)", y = "ln(Price)") +
+  theme_minimal(base_size = 12)
+
+p_level + p_log +
+  plot_annotation(
+    title   = "The same data, two scales — always check both before choosing",
+    theme   = theme(plot.title = element_text(size = 14, face = "bold",
+                                              colour = "#00395B"))
+  )
+```
+
+---
+
+## What the log–log slope means
+
+$$\ln(\text{price}_i) = \beta_0 + \beta_1 \cdot \ln(\text{distance}_i) + \varepsilon_i$$
+
+. . .
+
+$\hat\beta_1 =$ `r round(coef(m_log)["log(distance)"], 3)`
+
+. . .
+
+**Interpretation:** a 1% increase in distance from the centre is associated with a **`r abs(round(coef(m_log)["log(distance)"] * 100, 1))`% decrease** in price
+
+. . .
+
+**Price elasticity** — comparable across all 46 cities
+
+. . .
+
+::: {.callout-tip}
+Whenever the relationship looks curved in levels and the variable is strictly positive, try logs first. It is the right tool for relative (percentage) comparisons.
+:::
+
+---
+
+## Residuals: the deeper reason
+
+```{r}
+#| label: fig-residuals
+#| fig-width: 11
+#| fig-height: 4.0
+#| echo: false
+
+aug_level <- augment(m_level)
+aug_log   <- augment(m_log)
+
+r_level <- ggplot(aug_level, aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.15, size = 0.7, colour = "#69AACD") +
+  geom_hline(yintercept = 0, colour = "#E65032", linewidth = 1) +
+  geom_smooth(se = FALSE, colour = "#E65032", linewidth = 0.7, linetype = "dashed") +
+  labs(title = "Level model residuals",
+       x = "Fitted values", y = "Residuals") +
+  theme_minimal(base_size = 12)
+
+r_log <- ggplot(aug_log, aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.15, size = 0.7, colour = "#69AACD") +
+  geom_hline(yintercept = 0, colour = "#5FB46E", linewidth = 1) +
+  geom_smooth(se = FALSE, colour = "#5FB46E", linewidth = 0.7, linetype = "dashed") +
+  labs(title = "Log model residuals",
+       x = "Fitted values", y = "Residuals") +
+  theme_minimal(base_size = 12)
+
+r_level + r_log +
+  plot_annotation(
+    title = "Level model: funnel shape = heteroskedasticity. Log model: much flatter.",
+    theme = theme(plot.title = element_text(size = 13, face = "bold",
+                                            colour = "#00395B"))
+  )
+```
+
+We will study residual diagnostics properly in **Session 4**.
+
+# Other issues
+
+## Equations must match code
+
+Both submissions had markdown equations showing the *level* model while the code ran the *log* model.
+
+. . .
+
+::: columns
+::: {.column width="48%"}
+**Equation says:**
+
+$$\text{price}_i = \beta_0 + \beta_1 \cdot \text{distance}_i + \varepsilon_i$$
+:::
+
+::: {.column width="4%"}
+:::
+
+::: {.column width="48%"}
+**Code does:**
+
+```r
+lm(log(price) ~ log(distance),
+   data = hotels)
+```
+:::
+:::
+
+. . .
+
+**Rule:** write (or update) the equation *after* the code is final.
+
+---
+
+## Use inline R — never hardcode numbers
+
+::: columns
+::: {.column width="48%"}
+**Fragile:**
+
+```r
+# The slope is approximately -0.084.
+# A 1% increase in distance leads to
+# a 0.084% decrease in price.
+```
+
+If you re-run the model (different sample, different filter), the number in the text is now wrong.
+:::
+
+::: {.column width="4%"}
+:::
+
+::: {.column width="48%"}
+**Robust:**
+
+```
+# `R round(coef(m)["log(distance)"], 3)`
+# A 1% increase in distance leads to a
+# `R abs(round(coef(m)["log(distance)"]
+#   * 100, 1))`% decrease in price.
+```
+
+The number updates automatically whenever the code changes.
+:::
+:::
+
+. . .
+
+::: {.callout-warning}
+Also: always delete instructor comment blocks before submitting. 
+:::
+
+# The interaction result
+
+## What the plot shows
+
+```{r}
+#| label: fig-interaction
+#| fig-width: 8
+#| fig-height: 4.5
+#| echo: false
+
+ggplot(hotels, aes(x = log(distance), y = log(price), colour = capital)) +
+  geom_point(alpha = 0.12, size = 0.8) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.3) +
+  scale_colour_manual(
+    values = c("Non-capital" = "#69AACD", "Capital" = "#E65032"),
+    name   = "City type"
+  ) +
+  labs(
+    title = "Distance penalty by city type",
+    x     = "ln(Distance from city centre)",
+    y     = "ln(Price per night)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+The capital line sits higher (capital premium) and *looks* steeper — but are the slopes actually different?
+
+---
+
+## A null result is a finding
+
+```{r}
+#| echo: false
+pval <- summary(m_inter)$coefficients["log(distance):capitalCapital", "Pr(>|t|)"]
+b    <- coef(m_inter)
+slope_nc  <- round(b["log(distance)"], 3)
+slope_cap <- round(b["log(distance)"] + b["log(distance):capitalCapital"], 3)
+```
+
+- Slope in **non-capitals:** `r slope_nc`
+- Slope in **capitals:** `r slope_cap`
+- Interaction coefficient: `r round(b["log(distance):capitalCapital"], 3)` — p = `r round(pval, 3)`
+
+. . .
+
+The difference is small and **not statistically significant** at conventional levels.
+
+. . .
+
+::: {.callout-note}
+This is a real result: *we cannot rule out that the distance penalty is the same in both city types.* 
+
+The visual difference in slopes exists, but the data do not support it firmly enough to draw a conclusion.
+
+A null result reported clearly and honestly is better science than an insignificant result that is quietly buried.
+:::
+
+. . .
+
+Relates to discussions about effect sizes and statistical power in **Session 4**.
+
 
 # Binary outcome variables
 
@@ -73,7 +424,7 @@ Many important business and economics questions have a **yes/no answer:**
 . . .
 
 ::: {.fragment}
-What we really want to model is the **probability** of the event:
+What we really want: **probability** of the event:
 
 $$P(\text{exit} = 1 \mid \text{firm size, profit, age, } \ldots)$$
 :::
@@ -81,7 +432,7 @@ $$P(\text{exit} = 1 \mid \text{firm size, profit, age, } \ldots)$$
 . . .
 
 ::: {.fragment}
-The natural question: **can we just use OLS?**
+Natural question: **can we just use OLS?**
 :::
 
 ---
@@ -92,6 +443,7 @@ The natural question: **can we just use OLS?**
 #| echo: false
 #| fig-width: 9
 #| fig-height: 4.5
+
 set.seed(42)
 n <- 300
 x <- rnorm(n, mean = 5, sd = 2)
@@ -103,9 +455,9 @@ p1 <- ggplot(df, aes(x, y)) +
   geom_jitter(height = 0.03, alpha = 0.4, color = "#2c7bb6") +
   geom_smooth(method = "lm", color = "#d7191c", se = FALSE, linewidth = 1.2) +
   geom_hline(yintercept = c(0, 1), linetype = "dashed", color = "grey40") +
-  annotate("label", x = 1.5, y = -0.15, label = "Impossible!\nP < 0", 
+  annotate("label", x = 7.5, y = 0.15, label = "Impossible!\nP < 0", 
            color = "#d7191c", size = 3.5) +
-  annotate("label", x = 8.5, y = 1.15, label = "Impossible!\nP > 1", 
+  annotate("label", x = 8.5, y = 1.2, label = "Impossible!\nP > 1", 
            color = "#d7191c", size = 3.5) +
   labs(title = "OLS (Linear Probability Model)",
        x = "Predictor (e.g. log sales)", y = "P(exit = 1)") +
@@ -143,6 +495,9 @@ OLS predictions can fall **outside [0, 1]** — mathematically impossible for pr
 - A "probability" of −0.12 or 1.34 is meaningless
 
 :::
+
+. . .
+
 ::: {.column width="50%"}
 **Problem 2: Heteroskedastic errors by construction**
 
@@ -157,7 +512,7 @@ $$\text{Var}(\varepsilon | x) = P(x)(1 - P(x))$$
 
 ::: {.fragment}
 ::: {.callout-note}
-**Historical note:** Economists often *do* use OLS on binary outcomes — the "Linear Probability Model" (LPM). It's a useful benchmark, especially with panel data. But you should know its limits.
+**Historical note:** Economists often *do* use OLS on binary outcomes — the "Linear Probability Model" (LPM). Some consider it a useful benchmark, especially with panel data. But actually, it sucks.
 :::
 :::
 
@@ -197,6 +552,8 @@ Starting from $P = \sigma(\mathbf{X}\boldsymbol{\beta})$, rearranging gives:
 
 $$\ln\left(\frac{P}{1-P}\right) = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \ldots$$
 
+. . .
+
 The left-hand side is the **log-odds** (also called the *logit*):
 
 | Quantity | Formula | Intuition |
@@ -217,7 +574,7 @@ The left-hand side is the **log-odds** (also called the *logit*):
 
 ## Interpreting logit coefficients: three levels 
 
-Suppose we get $\hat\beta_{\text{profit\_margin}} = -0.43$ from our firm exit model.
+Suppose we get $\hat\beta_{\text{profit_margin}} = -0.43$ from our firm exit model.
 
 . . .
 
@@ -276,26 +633,6 @@ predict(model, newdata = new_firm, type = "response")
 `type = "response"` gives probabilities. `type = "link"` gives log-odds (the default — easy mistake!).
 :::
 
----
-
-## Quarto skill this session: inline R code
-
-Instead of writing "the odds ratio is 0.65" manually, embed the computation:
-
-```markdown
-The odds ratio for profit margin is
-`{{r}} round(exp(coef(model)["profit_margin"]), 2)`.
-```
-
-::: {.fragment}
-This renders as: *"The odds ratio for profit margin is 0.65."*
-
-Why does this matter?
-
-- If you update your model or data → **the number updates automatically**
-- No copy-paste errors between your model and your text
-- Reproducible, professional output
-:::
 
 ---
 
@@ -341,6 +678,6 @@ Why does this matter?
 :::
 
 ::: {.fragment}
-**Next session (May 7):** *What can go wrong — biases and diagnostics*  
+**Next session:** *What can go wrong — biases and diagnostics*  
 We'll look at multicollinearity, heteroskedasticity, influential observations, and how to detect them.
 :::
