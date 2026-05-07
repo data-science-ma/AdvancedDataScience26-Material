@@ -2,7 +2,7 @@
 title: "Modelling Binary and Categorical Outcomes"
 subtitle: "Session 3 · Quantitative Data Analysis"
 author: "Claudius Gräbner-Radkowitsch"
-date: "2026-04-30"
+date: "2026-05-07"
 format:
   revealjs:
     theme: [default, ../../assets/custom.scss]
