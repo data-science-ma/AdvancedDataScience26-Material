@@ -453,14 +453,16 @@ df <- data.frame(x = x, y = y)
 
 p1 <- ggplot(df, aes(x, y)) +
   geom_jitter(height = 0.03, alpha = 0.4, color = "#2c7bb6") +
-  geom_smooth(method = "lm", color = "#d7191c", se = FALSE, linewidth = 1.2) +
+  geom_smooth(method = "lm", color = "#d7191c", se = FALSE, linewidth = 1.2, fullrange=TRUE) +
   geom_hline(yintercept = c(0, 1), linetype = "dashed", color = "grey40") +
-  annotate("label", x = 7.5, y = 0.15, label = "Impossible!\nP < 0", 
+  annotate("label", x = 7.5, y = -0.15, label = "Impossible!\nP < 0", 
            color = "#d7191c", size = 3.5) +
   annotate("label", x = 8.5, y = 1.2, label = "Impossible!\nP > 1", 
            color = "#d7191c", size = 3.5) +
   labs(title = "OLS (Linear Probability Model)",
        x = "Predictor (e.g. log sales)", y = "P(exit = 1)") +
+  scale_y_continuous(limits = c(-0.25, 1.25)) + 
+  scale_x_continuous(limits = c(-3.5, 10)) +
   theme_minimal(base_size = 14) +
   theme(plot.title = element_text(face = "bold"))
 
@@ -662,7 +664,7 @@ predict(model, newdata = new_firm, type = "response")
 - Compute predicted probabilities for two contrasting firm profiles
 - Write one paragraph reporting your key finding using **inline R code**
 
-*Work individually or in pairs. I'll circulate. ~40 minutes.*
+*Work individually or in pairs.*
 
 ---
 
