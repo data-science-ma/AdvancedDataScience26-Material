@@ -1,0 +1,817 @@
+---
+title: "What Can Go Wrong"
+subtitle: "Biases and Diagnostics · Session 4"
+author: "Claudius Gräbner-Radkowitsch"
+date: "2026-05-21"
+format:
+  revealjs:
+    theme: [default, ../../assets/custom.scss]
+    slide-number: true
+    progress: true
+    code-line-numbers: false
+    highlight-style: github
+    fig-align: center
+    self-contained: true
+    width: 1280
+    height: 720
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(broom)
+library(modelsummary)
+library(lmtest)
+library(sandwich)
+library(car)
+library(performance)
+library(see)
+library(patchwork)
+
+hotels <- read_csv("data/hotels_cs.csv", show_col_types = FALSE)
+
+theme_diag <- theme_minimal(base_size = 14) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 13),
+    axis.title    = element_text(size = 11)
+  )
+
+model_base <- lm(price ~ distance + stars, data = hotels)
+```
+
+## Today's session {.center}
+
+::: {.incremental}
+1. When can we trust OLS output? — the Gauss-Markov framework
+2. Functional form and the linearity assumption
+3. Heteroskedasticity and robust standard errors
+4. Multicollinearity
+5. Influential observations
+6. Normality of residuals
+7. What diagnostics *cannot* detect: omitted variable bias
+:::
+
+---
+
+## A regression output we need to interrogate
+
+We have estimated hotel price as a function of distance and star rating.
+
+::: {.incremental}
+- Are these coefficient estimates pointing in the right direction?
+- Are the standard errors — and the stars — reliable?
+- Is there anything the diagnostics *cannot* reveal?
+:::
+
+. . .
+
+```{r}
+#| echo: false
+modelsummary(model_base, stars = TRUE,
+             gof_omit = "AIC|BIC|Log|F|RMSE",
+             fmt = 2, output = "markdown")
+```
+
+. . . 
+
+- This requires **theoretical considerations** _and_ **formal diagnostics**
+
+# The OLS Contract {.center}
+
+## BLUE: a guarantee with conditions
+
+**B**est **L**inear **U**nbiased **E**stimator — OLS is BLUE *when its assumptions hold*
+
+::: {.incremental}
+- Theorem about properties of the OLS **sampling distribution**
+- **Unbiased:** on average, the estimate equals the true value — $E[\hat{\beta}] = \beta$
+- **Efficient (Best):** among all linear unbiased estimators, OLS has the smallest variance
+- These are *different* properties, protected by *different* assumptions
+:::
+
+. . .
+
+> Unbiasedness = pointing in the right direction on average
+> Efficiency = grouping tightly around the truth
+
+## Unbiasedness and efficiency: visualised
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4.5
+set.seed(999)
+B       <- 1500
+true_b  <- 2.0
+n_full  <- 80
+
+results <- map_dfr(seq_len(B), function(b) {
+  x    <- rnorm(n_full)
+  z    <- 0.7 * x + rnorm(n_full, 0, sqrt(1 - 0.49))
+  y    <- 1 + true_b * x + 1.5 * z + rnorm(n_full)
+  xs <- x[1:20]; ys <- y[1:20]; zs <- z[1:20]   # named objects, predictable coef names
+  tibble(
+    efficient   = coef(lm(y  ~ x  + z))[["x"]],   # correct model, full sample
+    biased      = coef(lm(y  ~ x))[["x"]],         # omits z → OVB
+    inefficient = coef(lm(ys ~ xs + zs))[["xs"]]   # correct model, small sample → wide
+  )
+})
+
+label_map <- c(
+  efficient   = "OLS — correct model\n(Unbiased + Efficient)",
+  biased      = "OLS — omits z\n(Biased)",
+  inefficient = "OLS — small sample (n=20)\n(Unbiased, Inefficient)"
+)
+
+results |>
+  pivot_longer(everything(), names_to = "estimator", values_to = "estimate") |>
+  mutate(estimator = factor(label_map[estimator], levels = label_map)) |>
+  ggplot(aes(estimate, color = estimator, fill = estimator)) +
+  geom_density(alpha = 0.2, linewidth = 0.9) +
+  geom_vline(xintercept = true_b, linetype = "dashed",
+             color = "gray30", linewidth = 1) +
+  annotate("text", x = true_b + 0.1, y = Inf, vjust = 2,
+           label = "True β = 2", size = 3.8, color = "gray30") +
+  scale_fill_manual(values  = c("steelblue", "tomato", "goldenrod3")) +
+  scale_color_manual(values = c("steelblue", "tomato", "goldenrod3")) +
+  labs(x = "Estimated β", y = "Density", color = NULL, fill = NULL,
+       subtitle = "1,500 simulated datasets — each curve is a sampling distribution") +
+  theme_diag +
+  theme(legend.position = "bottom", legend.text = element_text(size = 10))
+```
+
+*Blue: correct answer, precise. Gold: correct direction, imprecise. Red: wrong answer entirely.*
+
+## The assumption checklist
+
+| Assumption | Formula | Plain English | Cost if violated |
+|---|---|---|---|
+| **Linearity** | $y = X\beta + u$ | Correct functional form | Biased estimates |
+| **No perfect collinearity** | $\text{rank}(X) = k$ | Predictors not identical | Cannot estimate |
+| **Exogeneity** | $E[u \mid X] = 0$ | No omitted confounders | Biased estimates |
+| **Homoskedasticity** | $\text{Var}(u \mid X) = \sigma^2$ | Constant error variance | SEs are wrong |
+| *(Normality)* | $u \mid X \sim \mathcal{N}(0,\sigma^2)$ | *Normal errors* | *Exact inference only* |
+
+. . .
+
+Assumptions 1 & 3 broken → **wrong answer even in large samples**
+Assumption 4 broken → **right answer, wrong uncertainty**
+
+## Why $E[u \mid X] = 0$ fails: five routes
+
+::: {.incremental}
+- **Omitted variable bias** — a relevant determinant of $y$ is left in $u$ and correlated with $X$ (e.g. ability in wage regressions)
+- **Measurement error in regressors** — if $X$ is observed with error correlated with the true regressor, estimates are attenuated or biased
+- **Simultaneity / reverse causality** — $X$ affects $y$ *and* $y$ affects $X$; the regressor is jointly determined with the outcome (price–quantity, income–health)
+- **Dynamic models with serially correlated errors** — including $y_{t-1}$ as a regressor while $u_t$ is autocorrelated makes the lag endogenous
+- **Functional form misspecification** — wrong transformation or omitted interactions push systematic structure into $u$, which then correlates with included regressors
+:::
+
+. . .
+
+*All five routes share one consequence: $\hat{\beta}$ is biased and inconsistent — wrong even in large samples.*
+
+## Our diagnostic dashboard
+
+One function covers five of the six checks:
+
+```{r}
+#| echo: true
+#| eval: false
+performance::check_model(model_base)
+```
+
+. . .
+
+Each panel targets one assumption — or one practical robustness concern (influential observations).
+We will go through them in order.
+
+## Our diagnostic dashboard — output {.center}
+
+```{r}
+#| fig-width: 12
+#| fig-height: 6.0
+#| out-width: "100%"
+check_model(model_base)
+```
+
+# Functional Form {.center}
+
+## Linearity in parameters ≠ linearity in variables
+
+OLS requires the model to be **linear in the parameters** — not in the raw variables.
+
+. . .
+
+| Transformation | Interpretation of $\hat{\beta}$ |
+|---|---|
+| `y ~ x` (level–level) | +1 unit of x → $+\hat{\beta}$ units of y |
+| `log(y) ~ x` (log–level) | +1 unit of x → $+(\hat{\beta} \times 100)\%$ change in y |
+| `y ~ log(x)` (level–log) | +1% change in x → $+\hat{\beta}/100$ units of y |
+| `log(y) ~ log(x)` (log–log) | +1% change in x → $+\hat{\beta}\%$ change in y |
+| `y ~ x + I(x^2)` (quadratic) | Relationship has a turning point |
+
+. . .
+
+*You already used log transformations in Task 1 — this session extends that logic.*
+
+## Residuals vs. fitted: the primary diagnostic
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4
+
+set.seed(42)
+n <- 300
+x <- seq(0.5, 10, length.out = n)
+
+y_lin  <- 1.5 + 1.8 * x + rnorm(n, 0, 1.8)
+y_quad <- 8   + 3   * x - 0.35 * x^2 + rnorm(n, 0, 1.2)
+
+m_lin  <- lm(y_lin  ~ x)
+m_quad <- lm(y_quad ~ x)
+
+make_resid <- function(m, title, subtitle) {
+  augment(m) |>
+    ggplot(aes(.fitted, .resid)) +
+    geom_point(alpha = 0.35, color = "steelblue", size = 1.2) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    geom_smooth(method = "loess", se = FALSE, color = "tomato", linewidth = 1) +
+    labs(x = "Fitted values", y = "Residuals",
+         title = title, subtitle = subtitle) +
+    theme_diag
+}
+
+make_resid(m_lin,  "Assumption holds",   "Random scatter — no pattern") +
+make_resid(m_quad, "Assumption violated", "Curved pattern — wrong functional form")
+```
+
+The red smoother should be **flat**. A systematic curve means something is missing.
+
+## Hotels-europe: linear vs. log-log
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4
+
+m_linear <- lm(price       ~ distance,            data = hotels)
+m_loglog  <- lm(log(price) ~ log(distance + 0.1), data = hotels)
+
+make_resid(m_linear, "Level–level: price ~ distance",         "") +
+make_resid(m_loglog, "Log–log: log(price) ~ log(distance)", "")
+```
+
+## The RESET test
+
+Formal test for functional form misspecification (`lmtest::resettest()`).
+
+```{r}
+#| echo: true
+resettest(m_linear)
+```
+
+. . .
+
+::: {.callout-warning}
+A rejection tells you **something is wrong** — not **what** to change.
+Use the residual plot to guide the fix; don't let the test prescribe it.
+:::
+
+## Fix 1 — Log transformation for a multiplicative relationship
+
+```{r}
+#| echo: true
+#| eval: false
+lm(log(price) ~ log(distance + 0.1), data = hotels)
+```
+
+```{r}
+#| fig-width: 11
+#| fig-height: 3.8
+
+set.seed(55)
+n_m   <- 250
+x_m   <- runif(n_m, 0.5, 10)
+y_m   <- 3 * x_m^1.5 * exp(rnorm(n_m, 0, 0.4))   # true: power-law / multiplicative
+
+m_m_level <- lm(y_m         ~ x_m)
+m_m_log   <- lm(log(y_m)    ~ log(x_m))
+
+make_resid(m_m_level, "Level–level  (misspecified)",
+           "Curve reveals multiplicative structure is ignored") +
+make_resid(m_m_log,   "Log–log  (corrected)",
+           "Residuals are now random — functional form matches the data")
+```
+
+. . .
+
+**Interpretation:** $\hat{\beta}$ is an *elasticity* — a 1% increase in $x$ is associated with a $\hat{\beta}$% change in $y$.
+*Example:* `log(price) ~ log(distance)` with $\hat{\beta} = -0.12$ → "10% further from centre → price 1.2% lower."
+
+## Fix 2 — Quadratic term for a curved relationship
+
+```{r}
+#| echo: true
+#| eval: false
+lm(price ~ distance + I(distance^2), data = hotels)
+```
+
+```{r}
+#| fig-width: 11
+#| fig-height: 3.8
+
+set.seed(66)
+n_q  <- 250
+x_q  <- runif(n_q, 0, 10)
+y_q  <- 2 + 4 * x_q - 0.38 * x_q^2 + rnorm(n_q, 0, 2)   # true: quadratic
+
+m_q_lin  <- lm(y_q ~ x_q)
+m_q_quad <- lm(y_q ~ x_q + I(x_q^2))
+
+make_resid(m_q_lin,  "Linear  (misspecified)",
+           "Arch pattern — the relationship has a turning point") +
+make_resid(m_q_quad, "Quadratic  (corrected)",
+           "Residuals are now random — the turning point is captured")
+```
+
+. . .
+
+**Interpretation:** the marginal effect of $x$ is $\hat{\beta}_1 + 2\hat{\beta}_2 x$ — it varies with $x$.
+Turning point at $x^* = -\hat{\beta}_1 / (2\hat{\beta}_2)$.
+*Note:* with $\hat{\beta}_2 < 0$, the effect of $x$ on $y$ diminishes and eventually reverses.
+
+# Heteroskedasticity {.center}
+
+## Non-constant error variance
+
+OLS assumes $\text{Var}(\varepsilon_i) = \sigma^2$ for all $i$ — the same uncertainty everywhere.
+
+**What goes wrong when this fails:**
+
+::: {.incremental}
+- OLS estimates are **still unbiased** — the direction and magnitude are correct on average
+- But standard errors are **inconsistent** — too narrow in some places, too wide in others
+- t-tests and confidence intervals **mislead** you about precision
+:::
+
+. . .
+
+*Example: hotel prices in Istanbul cluster tightly around the regression line; London hotels scatter much more widely. A single SE cannot represent both groups honestly.*
+
+## Scale-location plot: the visual test
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4
+
+set.seed(101)
+n <- 300
+x_h <- runif(n, 0.5, 9)
+
+y_homo   <- 1 + 1.5 * x_h + rnorm(n, 0, 2)
+y_hetero <- 1 + 1.5 * x_h + rnorm(n, 0, 0.55 * x_h)
+
+m_homo   <- lm(y_homo   ~ x_h)
+m_hetero <- lm(y_hetero ~ x_h)
+
+make_scaleloc <- function(m, title, subtitle) {
+  augment(m) |>
+    ggplot(aes(.fitted, sqrt(abs(.std.resid)))) +
+    geom_point(alpha = 0.35, color = "steelblue", size = 1.2) +
+    geom_smooth(method = "loess", se = FALSE, color = "tomato", linewidth = 1) +
+    labs(x = "Fitted values", y = "√|Standardised residuals|",
+         title = title, subtitle = subtitle) +
+    theme_diag
+}
+
+make_scaleloc(m_homo,   "Assumption holds",   "Flat band — constant spread") +
+make_scaleloc(m_hetero, "Assumption violated", "Fan shape — spread increases with fitted values")
+```
+
+The red smoother should be **flat and horizontal**.
+
+## Hotels-europe: heteroskedasticity in practice
+
+```{r}
+#| fig-width: 10
+#| fig-height: 4
+
+augment(model_base) |>
+  ggplot(aes(.fitted, sqrt(abs(.std.resid)))) +
+  geom_point(alpha = 0.2, color = "steelblue", size = 0.9) +
+  geom_smooth(method = "loess", se = FALSE, color = "tomato", linewidth = 1.2) +
+  labs(x = "Fitted values", y = "√|Standardised residuals|",
+       title = "Scale-location plot: hotels-europe",
+       subtitle = "price ~ distance + stars  |  November 2017, 8 cities") +
+  theme_diag
+```
+
+## The Breusch-Pagan test
+
+```{r}
+#| echo: true
+bptest(model_base)
+```
+
+. . .
+
+- **Null:** homoskedasticity (constant variance)
+- Rejection → heteroskedasticity present — standard errors are not reliable
+
+. . .
+
+::: {.callout-note}
+The test confirms what the plot already showed. Always look at the plot first — the test just formalises the diagnosis.
+:::
+
+## The fix: Heteroskedasticity-robust (HC) standard errors
+
+- Replace standard formula with a "sandwich" estimator
+- Uses each observation's actual squared residual to estimate uncertainty.
+- **Result:** larger SEs where the model struggles, smaller where it fits well. 
+  - Estimates do not change.
+
+```{r}
+#| echo: true
+#| eval: false
+modelsummary(list("Standard" = model_base, "Robust (HC1)" = model_base),
+             vcov = list("classical", "HC1"), stars = TRUE)
+```
+
+```{r}
+#| echo: false
+modelsummary(
+  list("Standard" = model_base, "Robust (HC1)" = model_base),
+  vcov     = list("classical", "HC1"),
+  stars    = TRUE,
+  fmt      = 2,
+  gof_omit = "AIC|BIC|Log|F|RMSE",
+  output   = "markdown"
+)
+```
+
+. . .
+
+**Rule of thumb:** with cross-sectional data, use robust SEs by default.
+
+# Multicollinearity {.center}
+
+## When predictors move together
+
+**Perfectly correlated** predictors: OLS breaks down
+
+. . .
+
+**Highly correlated** predictors: isolating individual contributions becomes difficult
+
+. . .
+
+**Consequence:**
+
+::: {.incremental}
+- **Estimates remain unbiased** — this is an efficiency problem, not a bias problem
+- Standard errors **inflate** — imprecise, unstable estimates
+- Small changes to the sample can flip signs or change magnitudes substantially
+:::
+
+. . .
+
+*Example: imagine adding both `stars` (hotel classification) and `rating` (guest satisfaction score) to the model. Both measure "quality" — how to check whether this is problematic?*
+
+## VIF: the Variance Inflation Factor
+
+**VIF**: by how much is variance of $\hat{\beta}_j$ inflated relative to a model with no correlation among predictors.
+
+$$\text{VIF}_j = \frac{1}{1 - R^2_j}$$
+
+$R^2_j$: the $R^2$ from regressing predictor $j$ on all other predictors.
+
+| VIF | Interpretation |
+|---|---|
+| 1 | No inflation — predictor is uncorrelated with others |
+| 1–5 | Mild — generally acceptable |
+| 5–10 | Moderate concern — inspect carefully |
+| > 10 | Serious — standard errors substantially inflated |
+
+## Hotels-europe: low vs. problematic VIF
+
+**Base model** — distance and stars measure different things: VIF is fine.
+
+```{r}
+#| echo: true
+vif(model_base)   # price ~ distance + stars
+```
+
+. . .
+
+**Redundant model** — a researcher includes both `stars` and `log(stars)` to "try both functional forms." They are near-identical (r ≈ 0.97): VIF explodes.
+
+```{r}
+#| echo: true
+model_collinear <- lm(price ~ distance + stars + log(stars), data = hotels)
+vif(model_collinear)
+```
+
+. . .
+
+::: {.callout-warning}
+Including a variable and a monotonic transformation of it simultaneously is the most common source of severe collinearity. The model cannot separate their effects — the SEs become unreliable. Drop one or the other.
+:::
+
+## What to do about multicollinearity
+
+::: {.incremental}
+- **Do not** drop variables mechanically based on VIF — think about what each variable represents
+- Dropping an important control to reduce VIF can introduce omitted variable bias (a far worse problem)
+- If two variables genuinely measure the same construct, keep only one — or *combine* them into a single index (e.g. a simple average, or the first principal component)
+- Sometimes collinearity is just a feature of reality — acknowledge it and note that individual coefficients should be interpreted with caution
+:::
+
+. . .
+
+::: {.callout-warning}
+**Interaction terms** (`x * z`) always produce high VIF for their component variables. This is expected and harmless — centering the variables reduces VIF cosmetically but does not change inference.
+:::
+
+# Influential Observations {.center}
+
+## Three types of unusual data points
+
+| Type | What makes it unusual | Does it distort results? |
+|---|---|---|
+| **Outlier** | Large residual — unusual *y* given *x* | Can do, but not always |
+| **High-leverage point** | Extreme position in *x* space | Can do, but not always |
+| **Influential observation** | Removing it substantially changes the estimates | **Yes, by definition** |
+
+. . .
+
+The dangerous case: a point that is *both* an outlier *and* high-leverage. 
+
+## Cook's distance
+
+$$D_i = \frac{(\hat{\boldsymbol{\beta}} - \hat{\boldsymbol{\beta}}_{(-i)})^\top (X^\top X) (\hat{\boldsymbol{\beta}} - \hat{\boldsymbol{\beta}}_{(-i)})}{p \cdot \hat{\sigma}^2}$$
+
+. . .
+
+$D_i$: how much do the estimated coefficients shift when observation $i$ is removed.
+
+**Rule of thumb:** $D_i > 4/n$ flags an observation worth investigating.
+
+
+## Example: one influential point
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4.5
+
+set.seed(303)
+n_base <- 60
+
+df_clean     <- tibble(x = runif(n_base, 0, 6),
+                       y = 1 + 1.8 * x + rnorm(n_base, 0, 0.8))
+df_influence <- bind_rows(df_clean, tibble(x = 13, y = 3))
+
+m_clean <- lm(y ~ x, data = df_clean)
+m_infl  <- lm(y ~ x, data = df_influence)
+
+p_clean <- df_clean |>
+  ggplot(aes(x, y)) +
+  geom_point(color = "steelblue", alpha = 0.7) +
+  geom_abline(slope = coef(m_clean)[2], intercept = coef(m_clean)[1],
+              color = "tomato", linewidth = 1.2) +
+  coord_cartesian(xlim = c(0, 14), ylim = c(-1, 14)) +
+  labs(title = "Without influential point",
+       subtitle = sprintf("slope = %.2f", coef(m_clean)[2])) +
+  theme_diag
+
+p_infl <- df_influence |>
+  mutate(influential = row_number() == n()) |>
+  ggplot(aes(x, y, color = influential)) +
+  geom_point(alpha = 0.8) +
+  scale_color_manual(values = c("steelblue", "tomato"), guide = "none") +
+  geom_abline(slope = coef(m_clean)[2], intercept = coef(m_clean)[1],
+              color = "gray60", linewidth = 0.8, linetype = "dashed") +
+  geom_abline(slope = coef(m_infl)[2],  intercept = coef(m_infl)[1],
+              color = "tomato", linewidth = 1.2) +
+  coord_cartesian(xlim = c(0, 14), ylim = c(-1, 14)) +
+  labs(title = "With one influential point (red)",
+       subtitle = sprintf("slope = %.2f  (was %.2f)", coef(m_infl)[2], coef(m_clean)[2])) +
+  theme_diag
+
+p_clean + p_infl
+```
+
+*The dashed line is the original fit. One point pulls the slope down substantially.*
+
+## Hotels-europe: who are the influential hotels?
+
+```{r}
+#| echo: true
+augment(model_base) |>
+  bind_cols(hotels |> select(hotel_id, city)) |>
+  arrange(desc(.cooksd)) |>
+  select(hotel_id, city, stars, price, .cooksd) |>
+  head(8)
+```
+
+## Investigate — don't delete
+
+::: {.incremental}
+- An influential observation is **not automatically an error**. It may be the most interesting case in the dataset.
+- Ask: *why* is this point influential? Data entry error, genuine extreme case, or a different sub-population?
+- **Workflow:** re-estimate without the flagged observations. Report *both* results and note the sensitivity.
+- Silently removing influential points without disclosure is a **serious methodological error**.
+:::
+
+# Normality of Residuals {.center}
+
+## The Q-Q plot: good vs. violated
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4
+
+set.seed(404)
+n    <- 250
+x_n  <- runif(n, 0, 10)
+
+y_normal <- 2 + x_n + rnorm(n)
+y_skewed <- 2 + x_n + (rexp(n, 0.4) - 2.5)
+
+m_normal <- lm(y_normal ~ x_n)
+m_skewed <- lm(y_skewed ~ x_n)
+
+make_qq <- function(m, title, subtitle) {
+  augment(m) |>
+    ggplot(aes(sample = .std.resid)) +
+    stat_qq(alpha = 0.4, color = "steelblue", size = 1.2) +
+    stat_qq_line(color = "tomato", linewidth = 1) +
+    labs(x = "Theoretical quantiles", y = "Sample quantiles",
+         title = title, subtitle = subtitle) +
+    theme_diag
+}
+
+make_qq(m_normal, "Normal residuals",  "Points follow the diagonal — assumption holds") +
+make_qq(m_skewed, "Skewed residuals",  "Systematic departure in the tails — assumption violated")
+```
+
+## A widespread misconception
+
+**What normality actually protects:**
+Exact finite-sample inference — t- and F-statistics follow their named distributions *exactly* only when errors are normal.
+
+. . .
+
+**Why it rarely matters in practice:**
+
+::: {.incremental}
+- With moderate-to-large $n$: the **Central Limit Theorem** ensures $\hat{\beta}$ is approximately normally distributed *regardless of the residual distribution*
+- For our hotels dataset ($n \approx 9{,}600$): normality of residuals is essentially irrelevant for inference
+- When it does matter: very small samples ($n < 30$), exact prediction intervals
+:::
+
+## The Shapiro-Wilk trap
+
+```{r}
+#| echo: true
+shapiro.test(resid(model_base)[1:5000])  # max n for shapiro.test is 5000
+```
+
+. . .
+
+::: {.callout-warning}
+With large $n$, Shapiro-Wilk **almost always rejects** — it detects trivially small deviations from normality that have no practical consequence for inference.
+
+**Do not interpret a significant p-value here as a problem.** Check the Q-Q plot visually instead.
+:::
+
+## All five checks together
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4.8
+check_model(model_base)
+```
+
+*Before asking "what did I leave out?", make sure the model you have passes these five tests.*
+
+# What Diagnostics Cannot Detect {.center}
+
+## The one thing residuals cannot tell you
+
+All five diagnostic panels show properties of the *residuals* — the part of $y$ the model did not explain.
+
+But there is a sixth problem that residuals cannot reveal:
+
+. . .
+
+> **Omitted variable bias (OVB):** a confounding variable that affects both $y$ and an included $x$ is missing from the model.
+
+. . .
+
+The residuals look fine — the bias is absorbed into the coefficient. The regression fits the data well. It just does so *for the wrong reason*.
+
+## The mechanism
+
+Suppose the true model is:
+
+$$y = \beta_0 + \beta_1 x + \beta_2 z + \varepsilon$$
+
+but we estimate $y = \beta_0 + \beta_1 x + \varepsilon$ (omitting $z$).
+
+. . .
+
+The estimated $\hat{\beta}_1$ absorbs part of the effect of $z$ — and is biased unless $z$ is *uncorrelated* with $x$.
+
+. . .
+
+**Direction-of-bias rule** (no algebra needed):
+
+$$\text{sign(bias)} = \text{sign}(\text{effect of } z \text{ on } y) \times \text{sign}(\text{corr}(z, x))$$
+
+## OVB in practice: what changes when we add city?
+
+```{r}
+#| echo: true
+m_no_city   <- lm(log(price) ~ log(distance + 0.1), data = hotels)
+m_with_city <- lm(log(price) ~ log(distance + 0.1) + city, data = hotels)
+```
+
+```{r}
+modelsummary(
+  list("Without city" = m_no_city, "With city controls" = m_with_city),
+  coef_map = c("log(distance + 0.1)" = "log(distance)"),
+  stars    = TRUE,
+  fmt      = 3,
+  gof_omit = "AIC|BIC|Log|F|RMSE",
+  output   = "markdown",
+  add_rows = tribble(
+    ~term,      ~`Without city`, ~`With city controls`,
+    "City FE",  "No",            "Yes"
+  )
+)
+```
+
+. . .
+
+The distance coefficient changes substantially — because **city** drives both price level *and* how far hotels are from the centre.
+
+## Why the residuals looked fine
+
+::: {.incremental}
+- Paris is expensive (+) and compact — hotels close to centre → omitted city effect pushes distance coefficient *downward*
+- Without `city`, the model assigns the price-level differences to distance — wrong reason, right-ish fit
+- **Direction:** sign(city→price) $\times$ sign(city corr. with distance) = $(+) \times (-)$ → negative bias on the distance coefficient
+:::
+
+. . .
+
+::: {.callout-important}
+OVB biases the *estimate itself* — not just the standard error.
+No robust SE fix, no diagnostic test, no larger sample can help.
+The solution is **research design**: measure the omitted variable, or use methods that control for it.
+:::
+
+## The way forward
+
+**Panel data and fixed effects** (panel data session):
+
+- If the omitted variable is *time-invariant* (e.g. which city), fixed effects eliminate it
+- One of the most powerful practical solutions to OVB
+
+. . .
+
+**Causal identification** (optional session on causality):
+
+- Randomisation, quasi-experiments
+- Address OVB at the design stage, not the estimation stage
+
+. . .
+
+> The transition from *describing patterns* to *making causal claims* is one of the most important methodological steps in applied data science.
+
+# Summary {.center}
+
+## The diagnostic workflow
+
+For every regression, ask:
+
+::: {.incremental}
+1. **Residuals vs. fitted** — is the functional form correct? Is there a pattern?
+2. **Scale-location** — is the variance constant? Do I need robust SEs?
+3. **Cook's distance / leverage** — are a few observations driving my results?
+4. **VIF** — are my predictors too correlated to separate their effects?
+5. **Q-Q plot** — are there serious departures from normality? (Large $n$: rarely a concern)
+6. **Thinking** — what important variable might I have left out?
+:::
+
+. . .
+
+```r
+performance::check_model(your_model)  # panels 1–5 in one call
+```
+
+The sixth question — OVB — requires subject-matter knowledge, not a function.
