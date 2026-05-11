@@ -41,6 +41,7 @@ theme_diag <- theme_minimal(base_size = 14) +
   )
 
 model_base <- lm(price ~ distance + stars, data = hotels)
+model_work <- lm(log(price) ~ log(distance + 0.1) + stars, data = hotels)
 ```
 
 ## Today's session {.center}
@@ -688,15 +689,77 @@ With large $n$, Shapiro-Wilk **almost always rejects** — it detects trivially 
 **Do not interpret a significant p-value here as a problem.** Check the Q-Q plot visually instead.
 :::
 
-## All five checks together
+# The Posterior Predictive Check {.center}
+
+## What the PPC shows
+
+The PPC simulates new response values from the fitted model many times and compares their distribution to the observed data.
+
+
+
+. . .
+
+*The PPC catches what the other five panels cannot: a fundamental mismatch between the model's implied data-generating process and the actual distribution of $y$.*
+
+## PPC: level-level vs. log-log
 
 ```{r}
-#| fig-width: 11
-#| fig-height: 4.8
-check_model(model_base)
+#| fig-width: 12
+#| fig-height: 4.5
+
+p_base <- plot(check_predictions(model_base)) +
+  labs(title = "Level–level: price ~ distance + stars",
+       subtitle = "Residual skewness = 7.8 — simulated prices spread to €3,500+") +
+  theme_diag
+
+p_work <- plot(check_predictions(model_work)) +
+  labs(title = "Log–log: log(price) ~ log(distance) + stars",
+       subtitle = "Residual skewness ≈ 0 — predicted and observed distributions align") +
+  theme_diag
+
+p_base + p_work
 ```
 
-*Before asking "what did I leave out?", make sure the model you have passes these five tests.*
+::: {.incremental}
+- **Blue line:** density of the *observed* outcome $y$
+- **Green lines:** densities of outcomes *simulated* from the fitted model
+- If green ≈ blue → the model generates plausible data → distributional assumptions are reasonable
+- If they diverge → the model produces values in the wrong range → mis-specified DGP
+:::
+
+
+## Dashboard panels 1–2: functional form and variance
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4.2
+check_model(model_work, check = c("linearity", "homogeneity"))
+```
+
+- **Linearity** — residuals vs. fitted; the red smoother should be flat. Systematic curve → functional form problem
+- **Homogeneity of variance** — scale-location; the smoother should be horizontal. Remaining fan shape → use robust SEs even with the log model
+
+## Dashboard panels 3–4: collinearity and normality
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4.2
+check_model(model_work, check = c("vif", "qq"))
+```
+
+- **Collinearity (VIF)** — bars should be short (< 5). Both predictors are fine; recall the `stars + log(stars)` example where VIF ≈ 20
+- **Normality of residuals (Q-Q)** — much closer to the diagonal than `model_base` (skewness −0.1 vs. 7.8); with $n > 9{,}000$ the remaining departure does not affect inference
+
+## Dashboard panels 5–6: influential observations and overall fit
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4.8
+check_model(model_work, check = c("outliers", "pp_check"))
+```
+
+- **Outliers / influential observations** — Cook's D bar and leverage–residuals scatter; points outside the contour lines warrant investigation (report with and without, do not silently delete)
+- **Posterior predictive check** — green lines now closely track the blue observed density. The log transformation resolved the distributional mismatch we saw with `model_base`.
 
 # What Diagnostics Cannot Detect {.center}
 
@@ -761,18 +824,24 @@ The distance coefficient changes substantially — because **city** drives both 
 
 ## Why the residuals looked fine
 
-::: {.incremental}
-- Paris is expensive (+) and compact — hotels close to centre → omitted city effect pushes distance coefficient *downward*
-- Without `city`, the model assigns the price-level differences to distance — wrong reason, right-ish fit
-- **Direction:** sign(city→price) $\times$ sign(city corr. with distance) = $(+) \times (-)$ → negative bias on the distance coefficient
-:::
+Run the full diagnostic suite on the *biased* model (no city controls):
+
+```{r}
+#| fig-width: 12
+#| fig-height: 3.8
+check_model(m_no_city, check = c("linearity", "homogeneity"))
+```
+
+. . .
+
+Both panels pass $\rightarrow$ residuals scatter randomly, variance looks stable.
+**Yet we know from the previous slide that $\hat{\beta}_\text{distance}$ is wrong.**
 
 . . .
 
 ::: {.callout-important}
-OVB biases the *estimate itself* — not just the standard error.
-No robust SE fix, no diagnostic test, no larger sample can help.
-The solution is **research design**: measure the omitted variable, or use methods that control for it.
+The bias was absorbed into $\hat{\beta}$ when the model was fitted — the residuals have already been "cleaned" of it.
+OVB is invisible to any diagnostic tool. The solution is **research design**, not better diagnostics.
 :::
 
 ## The way forward
