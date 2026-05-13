@@ -763,19 +763,25 @@ check_model(model_work, check = c("outliers", "pp_check"))
 
 # What Diagnostics Cannot Detect {.center}
 
-## The one thing residuals cannot tell you
+## What residuals cannot tell you
 
-All five diagnostic panels show properties of the *residuals* — the part of $y$ the model did not explain.
+All diagnostic panels show properties of the *residuals* — the part of $y$ the model did not explain.
 
-But there is a sixth problem that residuals cannot reveal:
+But every route to endogeneity ($E[u \mid X] \neq 0$) is invisible in the residuals:
+
+::: {.incremental}
+- **Omitted variable bias** — a confounder is absorbed into $\hat{\beta}$; the fit looks fine
+- **Measurement error in regressors** — attenuation bias hides behind well-behaved residuals
+- **Simultaneity / reverse causality** — the endogenous regressor leaves no obvious residual pattern
+:::
 
 . . .
 
-> **Omitted variable bias (OVB):** a confounding variable that affects both $y$ and an included $x$ is missing from the model.
+All three share the same logic: the bias is *inside* $\hat{\beta}$, not visible in $\hat{u}$.
 
 . . .
 
-The residuals look fine — the bias is absorbed into the coefficient. The regression fits the data well. It just does so *for the wrong reason*.
+We focus on **OVB** — the most common case in business and economics research.
 
 ## The mechanism
 
