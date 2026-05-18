@@ -1,0 +1,336 @@
+---
+title: "Session 6 — Live Demo Guide"
+subtitle: "Panel Data and Fixed Effects"
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 2
+    number-sections: true
+  pdf:
+    number-sections: true
+---
+
+**Purpose of this file:** Step-by-step walkthrough for the live coding demo. Not a script — use it as a checklist and prompter. The document you build live is `lecture_notes.qmd` in the Website repo.
+
+---
+
+# Before class
+
+- [ ] Open `lecture_notes.qmd` in RStudio. Run the setup chunk — confirm all packages load and `data/happiness_income.csv` is found.
+- [ ] Have the slides open in a second window for switching between input and coding.
+- [ ] Know the key numbers: ~140 countries, 2011–2023, ~1,700 obs; happiness is a 3-year rolling average (0–10 scale); GDP per capita in PPP from World Bank.
+- [ ] Verify `fixest`, `modelsummary`, and `flextable` are installed and current.
+- [ ] Run the `inline-values` chunk and check that `b_m0`, `b_m1`, `b_m2` are all populated — these feed the write-up paragraph. If `r2(m1)[["within r2"]]` fails, try `names(r2(m1))` to find the correct key name and patch accordingly.
+- [ ] Open a clean Quarto preview so students can see rendered output as you go.
+
+---
+
+# Timing overview
+
+| Block | Clock | Duration | Mode |
+|---|---|---|---|
+| Task 2 debrief | 16:00–16:30 | 30 min | Discussion |
+| Input: Motivation → Two-Way FE | 16:30–17:20 | 50 min | Slides |
+| **Demo Part 1:** data + model progression | **17:20–17:50** | **30 min** | **This guide** |
+| Break | 17:50–18:05 | 15 min | — |
+| **Demo Part 2:** causal interpretation + confounders | **18:05–18:25** | **20 min** | **This guide** |
+| Exercise | 18:25–19:05 | 40 min | Students |
+| Debrief + Quarto skill | 19:05–19:20 | 15 min | Slides |
+
+Demo target: **30 minutes** before the break, **20 minutes** after. The Quarto skill section (reporting CIs, flextable) is woven into the debrief — run the final table live if time allows.
+
+---
+
+# Demo Part 1 — Before the break (17:20–17:50)
+
+## Step 1 — Setup and data exploration (5 min)
+
+**Transition from slides:** "We have been talking about between-country vs. within-country variation in the abstract. Let's now open the actual data and see what those two things look like side by side."
+
+**Do:**
+```r
+dat <- read_csv("data/happiness_income.csv", show_col_types = FALSE)
+glimpse(dat)
+```
+
+**Say:**
+
+- "One row is one country in one year. We have roughly 140 countries, from 2011 to 2023. The key variables are: happiness (the WHR life satisfaction score, 0–10, already a 3-year average), GDP per capita in PPP from the World Bank, and two additional controls we'll come to later — the Gini coefficient and the unemployment rate."
+- "Because not every country has data in every year, the panel is unbalanced. That is typical and causes no problems for FE estimation."
+
+**Do:**
+```r
+dat |>
+  summarise(n_countries = n_distinct(country), n_years = n_distinct(year),
+            year_min = min(year), year_max = max(year), n_obs = n())
+```
+
+**Ask students:** "Before we run anything — do you expect richer countries to be happier in the data? And do you expect countries that have grown richer to have become happier over time? Could those two answers differ?"
+
+*Let them respond. The goal is to surface the between vs. within distinction before showing it in the data.*
+
+---
+
+## Step 2 — The cross-sectional pattern (5 min)
+
+**Do:**
+```r
+dat |>
+  group_by(country) |>
+  summarise(happiness = mean(happiness, na.rm = TRUE),
+            log_gdp   = mean(log(GDP_pc), na.rm = TRUE)) |>
+  filter(!is.na(happiness), !is.na(log_gdp)) |>
+  ggplot(aes(log_gdp, happiness)) +
+  geom_point(colour = "#2C5F8A", alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", colour = "#D04A2F", se = TRUE,
+              fill = "#D04A2F", alpha = 0.12, linewidth = 1) +
+  labs(x = "Log GDP per capita (PPP), country mean",
+       y = "Life satisfaction (0–10), country mean") +
+  theme_minimal(base_size = 13)
+```
+
+**Say:** "The cross-sectional pattern is strong and positive — Finland versus Afghanistan, the gap in both income and happiness is real. Now let's look at the within-country version."
+
+**Do (the Easterlin time series):**
+```r
+highlight <- c("United States", "Japan", "South Korea", "China", "Germany")
+
+dat |>
+  filter(country %in% highlight) |>
+  ggplot(aes(year, happiness, colour = country)) +
+  geom_line(linewidth = 1.1) + geom_point(size = 1.8) +
+  scale_colour_manual(values = c("United States"="#D04A2F", "Japan"="#e67e22",
+                                  "South Korea"="#8e44ad","China"="#2C5F8A",
+                                  "Germany"="#4A9B6F"), name = NULL) +
+  labs(x = NULL, y = "Life satisfaction (0–10)") + theme_minimal(base_size = 13)
+```
+
+**Point out:**
+
+- "China's GDP roughly quadrupled over this period. Happiness rose — but modestly."
+- "The US had strong aggregate growth — but happiness has been flat or falling."
+- "This is the Easterlin paradox in our data. The two patterns can coexist because they answer different questions."
+
+---
+
+## Step 3 — Pooled OLS: the naive baseline (5 min)
+
+**Say:** "Before we use panel methods, let's start with the dumbest possible thing: pool all observations and ignore the panel structure."
+
+**Do:**
+```r
+m0 <- feols(happiness ~ log(GDP_pc), data = dat)
+
+modelsummary(list("Pooled OLS" = m0),
+             coef_map  = c("log(GDP_pc)" = "Log GDP per capita"),
+             statistic = "conf.int", conf_level = 0.95,
+             gof_map   = c("nobs", "r.squared"),
+             stars     = TRUE, output = "flextable") |> autofit()
+```
+
+**Say:**
+
+- "The coefficient is large and positive — consistent with the scatter plot."
+- "But this estimate mixes every reason income and happiness might move together: actual causal effects, stable country differences, and everything in between."
+- "From Session 5: this is a regression without an identification argument. It's a conditional association, not a causal claim."
+
+**Ask students:** "What confounders are bundled into this coefficient? Think back to the slides."
+
+*Prompt if needed:* stable institutions, social trust, rule of law, geographic fortune — all positively correlated with both income and happiness, all absorbed into the coefficient.
+
+---
+
+## Step 4 — Country FE: the within-transformation (8 min)
+
+**Say:** "Fixed effects removes all of that stable between-country noise. Let's first see what the within-transformation actually does to the data."
+
+**Do (the demeaning demonstration):**
+```r
+within_dat <- dat |>
+  filter(country %in% highlight) |>
+  group_by(country) |>
+  mutate(happiness_dm = happiness   - mean(happiness,    na.rm = TRUE),
+         log_gdp_dm   = log(GDP_pc) - mean(log(GDP_pc),  na.rm = TRUE)) |>
+  ungroup()
+```
+
+**Build the two-panel figure:**
+```r
+p_raw <- dat |>
+  filter(country %in% highlight) |>
+  ggplot(aes(log(GDP_pc), happiness)) +
+  geom_point(colour = "grey70", alpha = 0.5) +
+  geom_smooth(method = "lm", colour = "#D04A2F", se = FALSE, linetype = "dashed") +
+  geom_smooth(aes(colour = country), method = "lm", se = FALSE, linewidth = 1) +
+  scale_colour_manual(values = c("United States"="#D04A2F","Japan"="#e67e22",
+                                  "South Korea"="#8e44ad","China"="#2C5F8A",
+                                  "Germany"="#4A9B6F"), guide = "none") +
+  labs(title = "Raw data", subtitle = "Dashed = pooled OLS") +
+  theme_minimal(base_size = 11)
+
+p_dm <- within_dat |>
+  ggplot(aes(log_gdp_dm, happiness_dm, colour = country)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", colour = "#D04A2F", se = FALSE, linewidth = 1) +
+  scale_colour_manual(values = c("United States"="#D04A2F","Japan"="#e67e22",
+                                  "South Korea"="#8e44ad","China"="#2C5F8A",
+                                  "Germany"="#4A9B6F"), name = NULL) +
+  labs(title = "Demeaned data", subtitle = "Within-country variation only") +
+  theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+
+p_raw + p_dm
+```
+
+**Say while pointing at the figure:**
+
+- "Left panel: the steep dashed line is pooled OLS — dominated by the gap between poor and rich countries."
+- "Right panel: after demeaning, we only keep within-country changes. Each point is a deviation from that country's average. The country-level gaps have disappeared."
+- "The within-country slope is flatter — and in some countries barely positive. That is the Easterlin challenge."
+
+**Now run the FE model:**
+```r
+m1 <- feols(happiness ~ log(GDP_pc) | country, vcov = ~country, data = dat)
+```
+
+**Point out:**
+
+- "The coefficient is actually *larger* than pooled OLS — counterintuitive, but real. Countries going through active growth phases (emerging markets, fast-growing economies) show happiness gains the cross-sectional comparison underestimates. The cross-section is compressed because very rich countries are already near the ceiling."
+
+---
+
+## Step 5 — Two-way FE and the full progression (7 min)
+
+**Say:** "Country FE handles stable country differences. But what about shocks that hit all countries in the same year — a global recession, a pandemic? Year fixed effects control for those."
+
+**Do:**
+```r
+m2 <- feols(happiness ~ log(GDP_pc) | country + year, vcov = ~country, data = dat)
+```
+
+**Now the full side-by-side table:**
+```r
+modelsummary(
+  list("Pooled OLS" = m0, "Country FE" = m1, "Two-way FE" = m2),
+  coef_map  = c("log(GDP_pc)" = "Log GDP per capita"),
+  statistic = "conf.int", conf_level = 0.95,
+  gof_map   = c("nobs", "r.squared", "r2.within"),
+  stars     = TRUE,
+  notes     = "95% CIs in brackets. Country FE and Two-way FE clustered at country level.",
+  output    = "flextable"
+) |> autofit()
+```
+
+**Walk through the table:**
+
+- "Pooled OLS: high coefficient, tiny CI, high R² — but this is just the cross-section doing the work."
+- "Country FE: coefficient higher, wider CI — the within-country estimate. R² is huge because the unit means are absorbed, but that's the FE doing its job, not the model fitting well."
+- "Within-R² (bottom row): this is the meaningful fit statistic. Around 0.14–0.15 — income explains about 14% of within-country happiness variation. A lot of happiness variation is happening for other reasons."
+- "Two-way FE: coefficient increases further after removing global time shocks. Year FE is doing real work here."
+
+**Transition to break:** "Let's take 15 minutes. When we come back, we'll ask the harder question: is any of this causal — and what would it take to claim it is?"
+
+---
+
+# Demo Part 2 — After the break (18:05–18:25)
+
+## Step 6 — Causal interpretation: connecting to Session 5 (7 min)
+
+**Transition:** "In Session 5 we said: a coefficient is causal only if you have an identification argument. What is FE's identification argument?"
+
+**Write on the whiteboard or type in the document:**
+
+> *"By comparing each country to itself over time, I remove all stable between-country differences — observed or not. The remaining income variation cannot be explained by time-invariant confounders."*
+
+**Say:**
+
+- "Country FE eliminates the whole $\eta_i$ — culture, institutions, geography, social trust. Not by measuring them. By construction."
+- "Year FE additionally removes common global shocks — the 2008 financial crisis, COVID."
+- "What is still potentially problematic? Time-varying factors that affect both income and happiness differently across countries — and feedback: does last year's happiness affect this year's income?"
+
+**Refer to the three-estimand table in the lecture notes:**
+```r
+# Show the table in the document
+```
+
+**Say:** "We are estimating the total effect — income through all its channels. If we added healthcare or social trust from the WHR to the model, we would be conditioning on mediators, not confounders. That gives us a controlled direct effect — a different and narrower quantity — and potentially introduces new bias. This is the bad control lesson from Session 5, now at the macro level."
+
+---
+
+## Step 7 — Time-varying confounders (8 min)
+
+**Say:** "There are two variables in our dataset that are genuine time-varying controls — not mediators. Gini and unemployment. Let's add them and see what happens."
+
+**Do:**
+```r
+m3a <- feols(happiness ~ log(GDP_pc) + gini_disp               | country + year,
+             vcov = ~country, data = dat)
+
+m3b <- feols(happiness ~ log(GDP_pc) + unemployment            | country + year,
+             vcov = ~country, data = dat)
+
+m3  <- feols(happiness ~ log(GDP_pc) + gini_disp + unemployment | country + year,
+             vcov = ~country, data = dat)
+```
+
+**Run the comparison table:**
+```r
+modelsummary(
+  list("Two-way FE" = m2, "+ Gini" = m3a, "+ Unemployment" = m3b, "+ Both" = m3),
+  coef_map = c("log(GDP_pc)"  = "Log GDP per capita",
+               "gini_disp"    = "Gini (disposable income)",
+               "unemployment" = "Unemployment rate"),
+  statistic = "conf.int", conf_level = 0.95,
+  gof_map   = c("nobs", "r.squared", "r2.within"),
+  stars = TRUE, output = "flextable"
+) |> autofit()
+```
+
+**Walk through the table:**
+
+- "Income: the coefficient barely moves. It falls from about `r round(coef(m2)[["log(GDP_pc)"]], 2)` to `r round(coef(m3)[["log(GDP_pc)"]], 2)` — a small drop. The income effect is robust."
+- "Gini: not significant. Partly because the Gini data is sparse — look how the sample shrinks when you add it. And partly because within-country Gini variation over 10 years is limited."
+- "Unemployment: negative and highly significant. Higher unemployment lowers happiness, even after controlling for income and fixed effects. That is intuitive: job loss affects wellbeing beyond just the income it takes away."
+
+**Point out the sample issue:**
+
+- "When we add Gini, we lose roughly `r nobs(m2) - nobs(m3a)` observations due to missing data. The comparison between column 1 and column 3 (unemployment only) is much cleaner because it uses nearly the same sample."
+
+**Ask students:** "Why is unemployment a time-varying confounder rather than a mediator? Does income growth cause unemployment to fall — or do they have independent drivers?"
+
+*Discussion point:* both channels exist — income growth creates jobs (so unemployment is partly a mediator), but structural factors (automation, labour market institutions, trade shocks) affect unemployment independently of income. Empirically, treating it as a confounder is reasonable here.
+
+---
+
+## Step 8 — The write-up (5 min)
+
+**Say:** "Last step — how do you write this up in a report? The lecture notes have a model paragraph. Let's look at it and read it aloud."
+
+**Show the write-up section in the lecture notes. Read it with students.**
+
+**Point out:**
+
+- "Every number is a dynamic inline reference — no hardcoded values. If the data changes, the paragraph updates automatically."
+- "The paragraph acknowledges the counter-intuitive result (FE coefficient larger than pooled OLS), explains it, and interprets the controls honestly — not as 'controlling for more is better', but as testing specific claims."
+- "Notice we report 95% CIs throughout: `β = X, 95% CI [Y, Z]`. This gives the reader the range of compatible effect sizes, not just a p-value."
+
+---
+
+# After the exercise — debrief (19:05–19:20)
+
+- Return to slides: the summary slide and Quarto skill.
+- Ask one or two students to read their write-up paragraph aloud and compare — focus on whether they correctly described the direction of the coefficient shift (FE larger, not smaller) and whether they connected it to the identification argument.
+- **Quarto skill:** run the modelsummary CI example live: `statistic = "conf.int"` vs. `estimate = "{estimate} [{conf.low}, {conf.high}]", statistic = NULL`. Show both formats and discuss when each is appropriate.
+
+---
+
+# If things go wrong
+
+| Problem | Fix |
+|---|---|
+| `r2(m1)[["within r2"]]` fails | Run `names(r2(m1))` to find the correct key; patch the `inline-values` chunk |
+| `flextable` output not rendering | Use `output = "markdown"` in `modelsummary()` as a fallback |
+| Country names not matching in Easterlin plot | Run `dat |> filter(str_detect(country, "Korea"))` to find the exact string used |
+| Gini model sample very small | SWIID data coverage varies — check `dat |> count(is.na(gini_disp))` to see how many missing |
+| `feols()` not found | `library(fixest)` — check setup chunk was run |
+| Running short on time | Skip Step 4 (manual demeaning visualisation) and go straight to `feols()`; skip Step 8 (write-up) and refer students to the lecture notes |
