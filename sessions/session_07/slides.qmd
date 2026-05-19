@@ -1,0 +1,774 @@
+---
+title: "Using AI Tools"
+subtitle: "Advanced Visualizations as an Example"
+author: "Prof. Dr. Claudius Gräbner-Radkowitsch"
+institute: "Europa-Universität Flensburg"
+date: "2026-06-11"
+format:
+  revealjs:
+    theme: [default, ../../assets/custom.scss]
+    slide-number: true
+    show-slide-number: all
+    progress: true
+    history: false
+    hash: true
+    center: false
+    transition: fade
+    transition-speed: fast
+    code-line-numbers: true
+    highlight-style: github
+    fig-align: center
+    fig-cap-location: bottom
+    width: 1280
+    height: 720
+    margin: 0.1
+    self-contained: true
+execute:
+  echo: true
+  eval: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| echo: false
+#| eval: true
+library(tidyverse)
+library(fixest)
+library(broom)
+library(patchwork)
+library(ggrepel)
+library(gghighlight)
+library(ggtext)
+library(scales)
+library(gapminder)
+```
+
+## Today's session {.center}
+
+::: columns
+::: {.column width="50%"}
+**Part 1 — AI tools**
+
+- What AI is (and isn't) doing
+- Three modes of use
+- Three failure modes
+- The invariant habit
+
+*Live demo: seeing failure in real time*
+:::
+
+::: {.column width="50%" .fragment}
+**Part 2 — Publication-ready figures**
+
+- Avoid ugly, bad, or wrong graphs
+- Choosing the right chart
+- Five key extensions
+- The 7-item checklist
+
+*Live demo + exercise*
+:::
+:::
+
+. . .
+
+::: {.callout-note}
+The tools will change every six months. The habits we build today will not.
+:::
+
+---
+
+# Part 1
+## What AI is (and isn't) doing
+
+AI **predicts plausible next tokens** given its training data.
+
+. . .
+
+It does **not**:
+
+- reason about your problem
+- look things up or verify claims
+- know what has changed since its training cutoff
+
+. . .
+
+**The consequence:**
+
+> Confidence is not correctness.
+> Fluent-looking code is not correct code.
+
+## What AI is (and isn't) doing
+
+Hallucination is **structural**, not a glitch to be patched away.
+
+. . .
+
+::: {.callout-tip}
+A model trained on Stack Overflow posts from 2022 will confidently emit syntax that no longer works in ggplot2 3.4.0.
+:::
+
+. . .
+
+::: {.callout-note}
+**What about AI with web search?**
+Tools like Perplexity or Claude with research mode retrieve current text — partially lifting the training-cutoff limitation. But retrieved text is still *summarised by a model that cannot verify it*. The hallucination and reasoning limitations remain.
+:::
+
+---
+
+## Three modes of use
+
+:::: columns
+::: {.column width="33%" .fragment}
+### Autocomplete
+::: {.incremental}
+- AI completes boilerplate you already know how to write
+
+- **Risk:** low
+- **Gain:** modest
+
+- Use when you would have typed it anyway
+:::
+:::
+
+::: {.column width="33%" .fragment}
+### Thought partner
+::: {.incremental}
+- Ask for options, strategies, chart recommendations — **you decide**
+
+- **Risk:** medium
+- **Gain:** high
+
+- Works best when you have strong domain knowledge
+:::
+:::
+
+::: {.column width="33%" .fragment}
+### Code reviewer
+::: {.incremental}
+- Paste your own code; ask what is wrong or what a referee would criticise
+
+- **Risk:** low
+- **Gain:** builds critical skill
+
+- Extremely useful, low-risk
+:::
+:::
+::::
+
+. . .
+
+::: {.callout-important}
+**The choice of mode is itself the skill.** The session returns to this after every demo.
+:::
+
+. . .
+
+::: {.callout-note}
+**Modes combine.** A typical workflow: use *thought partner* to sketch a plan, correct it yourself, then *autocomplete* fills in the code. Use *code reviewer* afterwards to catch what you missed.
+:::
+
+---
+
+## Three failure modes
+
+::: incremental
+1. **Package hallucination**
+   AI invents plausible-sounding packages or functions that do not exist.
+   A USENIX Security 2025 study across 16 models found **~20% of recommended packages were hallucinations**.
+   In R, this is silent until `library()` throws an error.
+
+2. **Stale API knowledge**
+   Deprecated arguments (`size=` → `linewidth=` in ggplot2 3.4.0), renamed functions, moved packages.
+   The model was trained on older code. It cannot know what changed.
+
+3. **Vibe coding**
+   Accepting AI output without reading it. Re-prompting when it breaks without diagnosing why.
+   Each unread iteration makes the next harder to understand.
+:::
+
+---
+
+## The invariant habit
+
+```
+prompt  →  inspect  →  run  →  diagnose
+   ↑                              │
+   └──────────────────────────────┘
+```
+
+. . .
+
+**Inspect** — read the code *before* running it. Does it do what you asked?
+
+**Diagnose** — when it breaks, understand *why* before re-prompting.
+
+. . .
+
+::: {.callout-note}
+Students who skip *inspect* and *diagnose* are vibe coding, even if they do not call it that.
+
+This habit is what makes AI use durable as tools change. Everything else in this session may be obsolete in two years. This will not be.
+:::
+
+---
+
+## Live demo {.center}
+
+::: {.callout-tip}
+**Watch for:**
+
+- Which mode is being used at each step?
+- When does AI produce something plausible but wrong?
+- What does the *diagnose* step look like in practice?
+:::
+
+---
+
+# Part 2
+
+## Two figures: same data
+
+::: columns
+::: {.column width="50%"}
+**Exploratory** — default output
+
+```{r}
+#| label: fig-exploratory
+#| echo: false
+#| eval: true
+#| fig-width: 5
+#| fig-height: 3.8
+ggplot(gapminder,
+       aes(x = gdpPercap,
+           y = lifeExp)) +
+  geom_point()
+```
+:::
+
+::: {.column width="50%"}
+**Publication-ready**
+
+```{r}
+#| label: fig-pubready
+#| echo: false
+#| eval: true
+#| fig-width: 5
+#| fig-height: 3.8
+gapminder |>
+  filter(year == 2007) |>
+  ggplot(aes(x = gdpPercap,
+             y = lifeExp,
+             color = continent)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_text_repel(
+    aes(label = country),
+    data = \(d) filter(d, country == "Germany"),
+    size = 4, nudge_x = -1.5, nudge_y = -2.0,
+    min.segment.length = 0, 
+    show.legend = FALSE
+  ) +
+  geom_text_repel(
+    aes(label = country),
+    data = \(d) filter(d, country == "Afghanistan"),
+    size = 4, nudge_x = -0.75, nudge_y = -3,
+    min.segment.length = 0, 
+    show.legend = FALSE
+  ) +
+  geom_text_repel(
+    aes(label = country),
+    data = \(d) filter(d, country == "China"),
+    size = 4, nudge_x = 0.5, nudge_y = -10,
+    min.segment.length = 0, 
+    show.legend = FALSE
+  ) +
+  scale_x_log10(
+    labels = label_dollar(suffix = "k", scale = 0.001)) +
+  scale_color_viridis_d() +
+  theme_classic(base_size = 11) +
+  labs(
+    x = "GDP per capita (USD, log scale)",
+    y = "Life expectancy (years)",
+    color = NULL,
+    caption = "Source: Gapminder. Year: 2007."
+  )
+```
+:::
+:::
+
+
+---
+
+## Two figures: the code
+
+::: columns
+::: {.column width="50%"}
+**Exploratory**
+
+```{r}
+#| eval: false
+ggplot(gapminder,
+       aes(x = gdpPercap,
+           y = lifeExp)) +
+  geom_point()
+```
+
+*5 lines. Default output.*
+:::
+
+::: {.column width="50%"}
+**Publication-ready**
+
+```{r}
+#| eval: false
+gapminder |>
+  filter(year == 2007) |>
+  ggplot(aes(x = gdpPercap,
+             y = lifeExp,
+             color = continent)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_text_repel(
+    aes(label = country),
+    data = \(d) filter(d, country == "Germany"),
+    size = 4, nudge_x = -1.5, nudge_y = -2.0,
+    min.segment.length = 0, 
+    show.legend = FALSE
+  ) +
+  geom_text_repel(
+    aes(label = country),
+    data = \(d) filter(d, country == "Afghanistan"),
+    size = 4, nudge_x = -0.75, nudge_y = -3,
+    min.segment.length = 0, 
+    show.legend = FALSE
+  ) +
+  geom_text_repel(
+    aes(label = country),
+    data = \(d) filter(d, country == "China"),
+    size = 4, nudge_x = 0.5, nudge_y = -10,
+    min.segment.length = 0, 
+    show.legend = FALSE
+  ) +
+  scale_x_log10(
+    labels = label_dollar(suffix = "k", scale = 0.001)) +
+  scale_color_viridis_d() +
+  theme_classic(base_size = 11) +
+  labs(
+    x = "GDP per capita (USD, log scale)",
+    y = "Life expectancy (years)",
+    color = NULL,
+    caption = "Source: Gapminder. Year: 2007."
+  )
+```
+:::
+:::
+
+---
+
+## Ugly, bad, wrong
+
+Three different problems — three different fixes.
+
+| Label | Problem | Example | Fix |
+|---|---|---|---|
+| **Ugly** | Aesthetic | Grey background, `gdpPercap` as axis label | `theme_classic()`, `labs()` |
+| **Bad** | Perceptual | Wrong chart type, overlapping labels, spaghetti | Rethink the encoding |
+| **Wrong** | Mathematical | No uncertainty, truncated axis, wrong aggregation | Fix the underlying logic |
+
+. . .
+
+::: {.callout-important}
+"It doesn't look great" is not a diagnosis. $\rightarrow$ 
+"The y-axis is truncated and the comparison is therefore wrong" is.
+:::
+
+---
+
+## Regression results — Coefficient plot
+
+*"What predicts life expectancy, and how uncertain are we?"*
+
+```{r}
+#| label: fig-coefplot
+#| echo: false
+#| eval: true
+#| fig-width: 8
+#| fig-height: 4
+gap07 <- gapminder |> filter(year == 2007)
+fit   <- lm(lifeExp ~ log(gdpPercap) + continent, data = gap07)
+tidy(fit, conf.int = TRUE) |>
+  filter(term != "(Intercept)") |>
+  ggplot(aes(x = estimate,
+             y = reorder(term, estimate),
+             xmin = conf.low,
+             xmax = conf.high)) +
+  geom_pointrange(colour = "#1e4a7b") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  theme_classic(base_size = 11) +
+  labs(x = "Coefficient estimate (95% CI)", y = NULL,
+       caption = "OLS. Source: Gapminder 2007.")
+```
+
+::: {.callout-note}
+Key geom: `geom_pointrange()` — estimate + uncertainty in one layer
+:::
+
+---
+
+## Distributions across groups — Violin + jitter
+
+*"How does life expectancy distribute across continents?"*
+
+```{r}
+#| label: fig-violin
+#| echo: false
+#| eval: true
+#| fig-width: 8
+#| fig-height: 4
+gapminder |>
+  filter(year == 2007) |>
+  ggplot(aes(x = reorder(continent, lifeExp, median),
+             y = lifeExp, fill = continent)) +
+  geom_violin(alpha = 0.6, linewidth = 0.3, trim = FALSE) +
+  geom_jitter(width = 0.07, alpha = 0.5, size = 1.5, colour = "grey30") +
+  scale_fill_viridis_d(guide = "none") +
+  coord_flip() +
+  theme_classic(base_size = 11) +
+  labs(x = NULL, y = "Life expectancy (years)",
+       caption = "Source: Gapminder 2007.")
+```
+
+::: {.callout-note}
+Key geoms: `geom_violin()` + `geom_jitter()` — shape AND raw data
+:::
+
+---
+
+## Bivariate with heterogeneity — Faceted scatter
+
+*"Does the income–health relationship vary by continent?"*
+
+```{r}
+#| label: fig-faceted
+#| echo: false
+#| eval: true
+#| fig-width: 9
+#| fig-height: 4
+gapminder |>
+  filter(year == 2007) |>
+  ggplot(aes(x = gdpPercap, y = lifeExp)) +
+  geom_point(alpha = 0.5, size = 1.5, colour = "#1e4a7b") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.9, colour = "#2d8a4e") +
+  scale_x_log10(labels = label_dollar(scale = 0.001, suffix = "k")) +
+  facet_wrap(~continent, nrow = 2) +
+  theme_classic(base_size = 10) +
+  labs(x = "GDP per capita (USD, log scale)", y = "Life expectancy (years)",
+       caption = "Source: Gapminder 2007.")
+```
+
+::: {.callout-note}
+Key geoms: `geom_smooth(method = "lm")` + `facet_wrap()` — relationship × group
+:::
+
+---
+
+## Time series, multiple units — Highlighted lines
+
+*"How has life expectancy evolved across European countries?"*
+
+```{r}
+#| label: fig-lines
+#| echo: false
+#| eval: true
+#| fig-width: 8
+#| fig-height: 4
+gapminder |>
+  filter(continent == "Europe") |>
+  ggplot(aes(x = year, y = lifeExp, group = country)) +
+  geom_line(linewidth = 0.6) +
+  gghighlight(country %in% c("Germany", "Bulgaria"),
+              use_direct_label = TRUE,
+              label_params = list(size = 3.5)) +
+  theme_classic(base_size = 11) +
+  labs(x = NULL, y = "Life expectancy (years)",
+       caption = "Source: Gapminder.")
+```
+
+::: {.callout-note}
+Key geoms: `geom_line()` + `gghighlight()` — focus without removing context
+:::
+
+---
+
+## Event study / DiD — Centred point-range
+
+*"Did the policy have an effect, and when did it start?"*
+
+```{r}
+#| label: fig-eventstudy
+#| echo: false
+#| eval: true
+#| fig-width: 8
+#| fig-height: 4
+tibble(
+  period    = -4:5,
+  estimate  = c(-0.1, 0.05, -0.2, 0.1, 0.0, 0.8, 1.4, 1.9, 2.1, 2.3),
+  conf_low  = estimate - c(0.40, 0.35, 0.40, 0.35, 0.0, 0.35, 0.38, 0.40, 0.42, 0.45),
+  conf_high = estimate + c(0.40, 0.35, 0.40, 0.35, 0.0, 0.35, 0.38, 0.40, 0.42, 0.45)
+) |>
+  ggplot(aes(x = period, y = estimate,
+             ymin = conf_low, ymax = conf_high)) +
+  geom_hline(yintercept = 0, colour = "grey60") +
+  geom_vline(xintercept = -0.5, linetype = "dashed", colour = "#1e4a7b") +
+  geom_pointrange(colour = "#1e4a7b") +
+  theme_classic(base_size = 11) +
+  labs(x = "Periods relative to treatment",
+       y = "Effect estimate (95% CI)",
+       caption = "Simulated event study data.")
+```
+
+::: {.callout-note}
+Key geoms: `geom_pointrange()` + `geom_vline()` — pre/post symmetry + event marker
+:::
+
+---
+
+## Choosing the right chart
+
+::: {.callout-warning}
+AI defaults to whatever was most common in its training data — usually a bar chart.
+
+**You must choose the chart type before you prompt.**
+:::
+
+| Question type | Chart | Key geom(s) |
+|---|---|---|
+| Regression coefficients | Coefficient plot | `geom_pointrange()` |
+| Distributions across groups | Violin + jitter | `geom_violin()` + `geom_jitter()` |
+| Bivariate with heterogeneity | Faceted scatter | `geom_smooth()` + `facet_wrap()` |
+| Time series, multiple units | Highlighted lines | `geom_line()` + `gghighlight()` |
+| Event study / DiD | Centered point-range | `geom_pointrange()` + `geom_vline()` |
+
+---
+
+## The 7-item publication checklist
+
+::: columns
+::: {.column width="55%"}
+:::{.incremental}
+1. Axis labels with **units**; no raw variable names
+2. **Colorblind-safe** palette that fits your data (e.g., viridis or Okabe-Ito)
+3. **Uncertainty** on every estimate
+4. `theme_classic()` (or similar) — no default grey background
+5. Base size ~10–12pt for a 3.5-inch figure
+6. **Source/notes** in `labs(caption = ...)`
+7. `ggsave()` with explicit dimensions — **never** the RStudio Export button
+:::
+:::
+
+::: {.column width="45%" .fragment}
+```{r}
+#| eval: false
+ggsave(
+  "figures/fig1.pdf",
+  plot = p,
+  width  = 5.5,
+  height = 3.5,
+  units  = "in",
+  device = cairo_pdf
+)
+```
+
+::: {.callout-tip}
+`cairo_pdf` embeds fonts correctly for journal submission.
+:::
+:::
+:::
+
+---
+
+## Five extensions worth knowing
+
+::: columns
+::: {.column width="50%"}
+**`patchwork`** — multi-panel layout
+
+```{r}
+#| eval: false
+(p1 | p2) / p3 +
+  plot_annotation(
+    tag_levels = "A"
+  ) +
+  plot_layout(
+    guides = "collect"
+  )
+```
+
+**`ggrepel`** — non-overlapping labels
+
+```{r}
+#| eval: false
+geom_text_repel(aes(label = country))
+```
+
+**`gghighlight`** — focus attention
+
+```{r}
+#| eval: false
+gghighlight(continent == "Europe")
+```
+:::
+
+::: {.column width="50%"}
+**`ggtext`** — Markdown in titles
+
+```{r}
+#| eval: false
+labs(
+  title = "**Treated** firms earn more"
+) +
+theme(
+  plot.title = element_markdown()
+)
+```
+
+**`scales`** — axis formatting
+
+```{r}
+#| eval: false
+scale_y_continuous(
+  labels = label_comma()
+)
+scale_x_log10(
+  labels = label_dollar()
+)
+```
+:::
+:::
+
+---
+
+## Where AI helps — and where it does not
+
+::: columns
+::: {.column width="50%" .fragment}
+**AI is strong on:**
+
+:::{.incremental}
+- Scaffolding a first draft quickly
+- Explaining error messages
+- Adjusting individual aesthetic parameters
+- Refactoring code to use the pipe
+:::
+:::
+
+::: {.column width="50%" .fragment}
+**AI struggles with:**
+
+:::{.incremental}
+- Choosing the right chart for the question
+- Multi-panel composition and shared legends (`patchwork`)
+- Up-to-date ggplot2 API (`linewidth` vs `size`)
+- Journal-specific constraints it was not told about
+- Self-correcting when a hallucinated package fails
+:::
+:::
+:::
+
+. . .
+
+::: {.callout-note}
+AI can get you to about 70% of a publication-ready figure. The last 30% requires judgment you cannot delegate.
+:::
+
+---
+
+## Live demo {.center}
+
+::: {.callout-tip}
+**Watch for:**
+
+- When and how do we choose the chart type?
+- Where does AI succeed at scaffolding?
+- Where do we need to step in as the human reviewer?
+:::
+
+---
+
+## Exercise {.center}
+
+Available via Github Classroom
+
+::: columns
+::: {.column width="50%" .fragment}
+**Track A** — suggested starting points
+
+- WMS: distribution of management scores across countries
+- CPS: wage–education relationship by subgroup
+:::
+
+::: {.column width="50%" .fragment}
+**Track B** — bring your own question
+
+- State it in one sentence
+- If you cannot, use Track A
+:::
+:::
+
+. . .
+
+::: {.callout-important}
+**Before opening any AI tool:**
+Write one sentence justifying your chart type choice.
+:::
+
+---
+
+## Quarto + AI: three patterns
+
+**Error diagnosis** — paste a render error with the surrounding chunk
+
+> *"What is causing this error?"*
+
+Reliable on YAML errors and chunk option problems.
+
+. . .
+
+**Goal-finding** — ask how to achieve a specific Quarto output
+
+> *"How do I make a figure span the full slide width in Reveal.js?"*
+
+AI as documentation shortcut — always verify at `quarto.org`.
+
+. . .
+
+**Prose refinement** — describe your figure and ask whether the claim holds
+
+> *"Is this claim supported by the figure? Can it be more concise?"*
+
+Most tools accept a screenshot — share one directly. If yours does not, describing the figure forces the clarity the caption needs anyway.
+
+---
+
+## Closing debrief {.center}
+
+::: columns
+::: {.column width="33%"}
+**One thing AI is genuinely useful for** in your workflow
+:::
+
+::: {.column width="33%"}
+**One thing you would never fully delegate** to AI
+:::
+
+::: {.column width="33%"}
+**One habit** from today you will keep using after the course
+:::
+:::
+
+. . .
+
+::: {.callout-note}
+**Next session:** Recap — send me your question until the end of the week.
+:::
