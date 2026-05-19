@@ -1,0 +1,404 @@
+---
+title: "Advanced Panel Data"
+subtitle: "Session 6b (Optional) — Quantitative Data Analysis: Applied Data Science and Modern Econometrics"
+author: "Claudius Gräbner-Radkowitsch"
+institute: "Europa-Universität Flensburg & Johannes Kepler University Linz"
+date: "Optional — see course website for scheduling"
+format:
+  revealjs:
+    theme: [default, custom.scss]
+    slide-number: true
+    progress: true
+    code-line-numbers: false
+    highlight-style: github
+    fig-align: center
+    incremental: false
+execute:
+  echo: true
+  eval: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+#| eval: true
+library(tidyverse)
+library(fixest)
+library(plm)
+library(modelsummary)
+```
+
+# Where We Are {background-color="#2C5F8A"}
+
+## Session 6 recap
+
+In Session 6 we learned that panel data contain two sources of
+variation — between units and within units over time.
+
+The **Fixed Effects (FE) estimator** exploits only within-unit
+variation by subtracting each unit's time-mean. This eliminates
+stable unobserved heterogeneity $\eta_i$ and corrects the OVB
+that pooled OLS suffers from.
+
+**Two-way FE** additionally controls for common period shocks $\gamma_t$.
+
+::: {.callout-note}
+## Today's question
+FE is powerful — but it rests on assumptions that sometimes fail.
+What do we do when they do?
+:::
+
+## Three situations FE does not handle well
+
+```{=html}
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-top: 1rem; font-size: 0.85em;">
+  <div style="background: #f0f4f8; border-radius: 8px; padding: 1.2rem;">
+    <p style="font-weight: bold; color: #2C5F8A; margin-bottom: 0.5rem;">1. Time-invariant covariates matter</p>
+    <p>FE differences them out — they cannot be estimated.</p>
+    <p style="color: #555; margin-top: 0.5rem;">→ <strong>Random Effects</strong></p>
+  </div>
+  <div style="background: #f0f4f8; border-radius: 8px; padding: 1.2rem;">
+    <p style="font-weight: bold; color: #2C5F8A; margin-bottom: 0.5rem;">2. The question is about change</p>
+    <p>FE uses deviations from means — not consecutive differences.</p>
+    <p style="color: #555; margin-top: 0.5rem;">→ <strong>First Differences</strong></p>
+  </div>
+  <div style="background: #f0f4f8; border-radius: 8px; padding: 1.2rem;">
+    <p style="font-weight: bold; color: #2C5F8A; margin-bottom: 0.5rem;">3. The outcome is dynamic</p>
+    <p>Lagged $y_{i,t-1}$ as regressor — FE is biased here.</p>
+    <p style="color: #555; margin-top: 0.5rem;">→ <strong>Dynamic panel models</strong></p>
+  </div>
+</div>
+```
+
+<br>
+
+Same dataset throughout: `wms-management-survey`.
+
+---
+
+# Random Effects {background-color="#2C5F8A"}
+
+## FE throws away between-unit information
+
+The within-transformation removes everything that does not vary
+over time within a unit — including covariates we care about.
+
+**In the WMS dataset:**
+
+- `ownership` type (founder, family, dispersed) is largely stable
+  within firms across survey waves
+- FE silently drops it — its coefficient cannot be estimated
+
+To recover estimates for time-invariant covariates, we need a
+model that retains between-unit information.
+
+## The RE model
+
+**Random Effects (RE)** treats $\eta_i$ not as a fixed unknown
+parameter per unit, but as a random draw from a distribution:
+
+$$\eta_i \sim \mathcal{N}(0, \sigma^2_\eta)$$
+
+Because $\eta_i$ is modelled as part of the error structure rather
+than differenced out, time-invariant covariates remain in the model
+and can be estimated.
+
+Estimation proceeds via **Generalised Least Squares (GLS)** —
+a weighted average of the within and between estimators.
+
+::: {.callout-warning}
+## The critical assumption
+RE is only consistent when $\eta_i$ is **uncorrelated** with all
+regressors. If firms with strong management culture (high $\eta_i$)
+also tend to be larger — which is plausible — RE is biased.
+:::
+
+## The efficiency tradeoff
+
+```{=html}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 0.5rem; font-size: 0.88em;">
+  <div style="border: 2px solid #2C5F8A; border-radius: 8px; padding: 1.2rem;">
+    <p style="font-weight: bold; color: #2C5F8A; margin-bottom: 0.5rem;">Fixed Effects</p>
+    <p>✓ Consistent even if $\eta_i$ correlates with $x_{it}$</p>
+    <p>✓ Safe default in business/economics</p>
+    <p>✗ Cannot estimate time-invariant covariates</p>
+    <p>✗ Less efficient when RE assumption holds</p>
+  </div>
+  <div style="border: 2px solid #4A9B6F; border-radius: 8px; padding: 1.2rem;">
+    <p style="font-weight: bold; color: #4A9B6F; margin-bottom: 0.5rem;">Random Effects</p>
+    <p>✓ Can estimate time-invariant covariates</p>
+    <p>✓ More efficient when $\eta_i \perp x_{it}$</p>
+    <p>✗ Biased if $\eta_i$ correlates with $x_{it}$</p>
+    <p>✗ Stronger distributional assumption required</p>
+  </div>
+</div>
+```
+
+<br>
+
+**When RE is preferred:** units are a random sample from a larger
+population *and* time-invariant covariates are of substantive
+interest — more common in individual surveys than in firm panels.
+
+## The Hausman test: choosing between FE and RE
+
+**The question:** is $\eta_i$ correlated with $x_{it}$?
+
+- If **no**: FE and RE both consistent; RE is more efficient
+- If **yes**: RE is biased; FE is the right choice
+
+The **Hausman test** compares the two sets of estimates. Under
+$H_0$ (no correlation), they should be similar. A significant
+divergence is evidence that RE is inconsistent.
+
+```{r}
+library(plm)
+
+pdata <- pdata.frame(wms, index = c("firmid", "wave"))
+
+m_fe <- plm(management ~ log_emp + degree_m,
+            data = pdata, model = "within")
+m_re <- plm(management ~ log_emp + degree_m,
+            data = pdata, model = "random")
+
+phtest(m_fe, m_re)
+```
+
+::: {.callout-tip}
+## Rule of thumb
+Reject $H_0$ → use FE. In most business/economics panel
+applications, the Hausman test rejects and FE is appropriate.
+:::
+
+## RE in practice: estimating ownership effects
+
+```{r}
+# RE without ownership — for Hausman comparison
+m_re <- plm(management ~ log_emp + degree_m,
+            data = pdata, model = "random")
+
+# RE with ownership — the quantity FE cannot give us
+m_re_own <- plm(management ~ log_emp + degree_m + ownership,
+                data = pdata, model = "random")
+
+modelsummary(
+  list("FE" = m_fe, "RE" = m_re, "RE + ownership" = m_re_own),
+  gof_map = c("nobs", "r.squared"),
+  notes   = "FE: within estimator. RE: GLS (Swamy-Arora)."
+)
+```
+
+::: {.callout-note}
+## Interpretation
+If the Hausman test rejects, treat RE + ownership estimates with
+caution — the ownership coefficient absorbs some of the
+between-unit bias. Report the Hausman result alongside.
+:::
+
+---
+
+# First Differences {background-color="#2C5F8A"}
+
+## An alternative to the within-transformation
+
+Both FE and FD eliminate $\eta_i$ — but via different operations.
+
+**FE:** subtract each unit's *time-mean*
+$$\tilde{y}_{it} = y_{it} - \bar{y}_i$$
+
+**FD:** subtract the *previous period's value*
+$$\Delta y_{it} = y_{it} - y_{i,t-1}$$
+
+Both remove $\eta_i$ because it is time-invariant. One observation
+per unit is lost with FD (no lag for $t = 1$).
+
+## FD vs. FE: when does the choice matter?
+
+**When $T = 2$:** FD and FE are numerically identical.
+
+**When $T > 2$:** they differ — and the right choice depends on
+the error structure.
+
+- **FE is more efficient** when $v_{it}$ is serially uncorrelated
+- **FD is more robust** when $v_{it}$ follows a random walk —
+  FE amplifies that correlation, FD removes it
+
+::: {.callout-note}
+## The natural use case for FD
+FD is most intuitive when the research question is explicitly
+about **change**: did firms that *improved* their management
+score also *improve* performance? The differenced data directly
+represent the changes of interest.
+:::
+
+## FD in R
+
+```{r}
+m_fd <- plm(management ~ log_emp + degree_m,
+            data  = pdata,
+            model = "fd")
+
+modelsummary(
+  list("Pooled OLS" = feols(management ~ log_emp + degree_m,
+                            data = wms),
+       "FE"         = m_fe,
+       "FD"         = m_fd),
+  gof_map = c("nobs", "r.squared"),
+  notes   = "FE: within estimator. FD: first-difference estimator."
+)
+```
+
+**Rephrasing the FD coefficient:**
+
+> Among firms that grew between survey waves, did management quality
+> tend to improve over the same period?
+
+This is a change-on-change interpretation — distinct from FE's
+deviation-from-mean interpretation.
+
+---
+
+# Dynamic Panels: An Outlook {background-color="#2C5F8A"}
+
+## When outcomes persist over time
+
+Many business processes are **path-dependent**: today's outcome
+is partly determined by yesterday's.
+
+- Management quality: practices change slowly — last wave's score
+  is a strong predictor of this wave's
+- Firm performance: last year's profit shapes this year's investment
+- Employee capabilities: skills accumulate over time
+
+The natural model adds $y_{i,t-1}$ as a regressor:
+
+$$y_{it} = \alpha \, y_{i,t-1} + x_{it}\beta + \eta_i + v_{it}$$
+
+$\alpha$ measures **persistence**: how strongly does last period's
+outcome predict this period's, holding $x_{it}$ constant?
+
+## Why FE fails here: the Nickell bias
+
+Applying the within-transformation to a dynamic model creates a
+mechanical problem.
+
+The demeaned lagged outcome $(y_{i,t-1} - \bar{y}_i)$ is
+**correlated with** the demeaned error $(v_{it} - \bar{v}_i)$
+because $\bar{v}_i$ contains $v_{i,t-1}$, which is correlated
+with $y_{i,t-1}$.
+
+**Consequence:** the FE estimate of $\alpha$ is biased downward.
+The bias disappears only as $T \to \infty$ — for panels with
+small $T$ it can be severe.
+
+::: {.callout-warning}
+## A practical warning
+If your model includes a lagged dependent variable and your panel
+has small $T$: FE is inconsistent. The model *looks* like it runs,
+but the estimates are unreliable.
+:::
+
+## The solution: dynamic panel GMM
+
+The standard solution is the **Arellano-Bond estimator**
+(Diff-GMM), which:
+
+1. First-differences the equation to remove $\eta_i$
+2. Uses lagged *levels* of $y$ as instruments for the differenced
+   lagged term — they are correlated with $\Delta y_{i,t-1}$ but
+   not with $\Delta v_{it}$ (under no serial correlation in $v_{it}$)
+
+An extension, **System-GMM** (Blundell-Bond), also uses the levels
+equation alongside the differenced equation for better efficiency
+when outcomes are highly persistent.
+
+::: {.callout-note}
+## For further study
+GMM estimation for dynamic panels is a rich and technically
+demanding topic. The practical reference is Roodman (2009),
+*How to do xtabond2*, available at
+[ideas.repec.org](https://ideas.repec.org). In R, the `pgmm()`
+function in the `plm` package implements both Diff-GMM and Sys-GMM.
+:::
+
+---
+
+# The Decision Landscape {background-color="#2C5F8A"}
+
+## Choosing an estimator
+
+| Situation | Recommended estimator |
+|---|---|
+| Static; $\eta_i$ likely correlated with $x$ | **Unit FE** ← default |
+| Static; time-invariant covariates matter; Hausman not rejected | **Random Effects** |
+| Question is explicitly about *change* | **First Differences** |
+| Dynamic ($y_{i,t-1}$ as regressor); small $T$ | **Diff-GMM / Sys-GMM** |
+| Large $T$; potential non-stationarity | Long panel / cointegration |
+
+When uncertain: **two-way FE is the safe starting point**.
+
+## Common pitfalls
+
+- **Pooled OLS without checking:** always run a Hausman test or
+  compare FE results before reporting pooled estimates
+
+- **Ignoring clustering:** panel standard errors without unit-level
+  clustering are almost always too small
+
+- **FE with a lagged DV:** if $y_{i,t-1}$ is in the model and
+  $T$ is small, FE is biased — recognise the dynamic panel setting
+
+- **RE without the Hausman test:** never prefer RE on efficiency
+  grounds alone without testing the exogeneity assumption
+
+- **Confusing within and overall $R^2$:** always report within-$R^2$
+  for FE models
+
+---
+
+# Session Summary {background-color="#2C5F8A"}
+
+## What we covered today
+
+**Random Effects:** treats $\eta_i$ as random; consistent only when
+$\eta_i \perp x_{it}$; can estimate time-invariant covariates;
+choose using the Hausman test (`plm::phtest()`).
+
+**First Differences:** subtracts $y_{i,t-1}$ from $y_{it}$;
+eliminates $\eta_i$; natural for change questions; equivalent to
+FE when $T = 2$; more robust when errors follow a random walk.
+
+**Dynamic panels (outlook):** Nickell bias makes FE inconsistent
+when $y_{i,t-1}$ is a regressor; Arellano-Bond GMM is the standard
+solution; beyond this course but important to recognise.
+
+**Decision map:** two-way FE is the default; move to RE when
+time-invariant covariates matter and Hausman allows it; use FD
+when the question is about change; seek GMM only when dynamics
+are substantively important.
+
+## Quarto skill: documenting estimator choice
+
+When reporting results from multiple estimators, always explain
+*why* you chose the one you did:
+
+```{r}
+modelsummary(
+  list("FE" = m_fe, "RE" = m_re, "FD" = m_fd),
+  gof_map = c("nobs", "r.squared"),
+  notes   = c(
+    "FE: within estimator, SEs clustered at firm level.",
+    "RE: GLS (Swamy-Arora). FD: first-difference, HC robust SEs.",
+    "Hausman test rejects RE (p < 0.05); FE preferred for causal inference.",
+    "FD included for robustness — identical to FE when T = 2."
+  )
+)
+```
+
+::: {.callout-tip}
+## Good practice
+One footnote sentence stating the Hausman test result and your
+estimator choice is standard in applied panel econometrics.
+:::

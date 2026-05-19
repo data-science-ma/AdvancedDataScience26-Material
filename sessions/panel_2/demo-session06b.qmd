@@ -1,0 +1,517 @@
+---
+title: "Session 6b: Advanced Panel Data"
+subtitle: "Live Demo & Lecture Notes"
+author: "Claudius Gräbner-Radkowitsch"
+date: "Optional — see course website for scheduling"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    theme: cosmo
+    self-contained: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Introduction
+
+## Business question
+
+> *Does ownership type affect management quality — and do firms that
+> improve their size also improve their management practices?*
+
+Session 6 established fixed effects as the core panel tool: by
+focusing on within-unit variation over time, FE controls for stable
+unobserved firm characteristics that would otherwise bias our estimates.
+
+This session covers three situations where FE is not the right choice:
+
+1. **Time-invariant covariates** like ownership type are differenced
+   out by FE — we cannot estimate their effects at all
+2. **Change questions** are more naturally addressed by first
+   differencing consecutive observations rather than deviating from
+   unit means
+3. **Dynamic outcomes** that depend on their own past values require
+   a different estimator entirely — FE is biased in this case
+
+## Packages and data
+
+This session introduces `plm`, the standard R package for RE, FD,
+and several other panel estimators that `fixest` does not implement.
+We continue to use `fixest` for FE to stay consistent with Session 6.
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(fixest)
+library(plm)
+library(modelsummary)
+```
+
+```{r}
+#| label: load-data
+wms <- read_csv("data/wms_da_textbook.csv") |>
+  mutate(log_emp = log(emp_firm))
+
+# plm requires a pdata.frame that declares the unit and time indices
+pdata <- pdata.frame(wms, index = c("firmid", "wave"))
+
+glimpse(wms)
+```
+
+::: {.callout-note}
+**Why two packages?** `fixest::feols()` is faster and better-designed
+for high-dimensional FE — that is why we used it in Session 6 and
+continue to use it here for FE models. `plm` covers RE and FD, which
+`fixest` does not implement. Always use the right tool for the job.
+:::
+
+The key variables are the same as in Session 6. One addition:
+
+| Variable | Description |
+|---|---|
+| `ownership` | Ownership type: founder, family, dispersed, government, etc. |
+
+`ownership` is largely stable within firms across survey waves — it
+is a time-invariant covariate that FE cannot estimate.
+
+---
+
+# Random Effects
+
+## Why FE cannot answer every question
+
+The within-transformation removes *all* time-invariant variation —
+including that of covariates we care about substantively.
+
+Let us confirm that `ownership` barely changes within firms:
+
+```{r}
+#| label: ownership-variation
+
+wms |>
+  group_by(firmid) |>
+  summarise(n_ownership_types = n_distinct(ownership, na.rm = TRUE)) |>
+  count(n_ownership_types, name = "n_firms")
+```
+
+The vast majority of firms have exactly one ownership type across
+all waves — confirming that `ownership` is effectively time-invariant
+in this dataset. Including it in a FE model will either drop it or
+return unreliable estimates.
+
+## The RE model
+
+The Random Effects model treats $\eta_i$ as a random variable drawn
+from a distribution with mean zero and variance $\sigma^2_\eta$,
+rather than as a fixed unknown parameter per unit. This changes the
+estimation from demeaning (FE) to Generalised Least Squares (GLS),
+which is a weighted combination of within and between information.
+
+**Consequence:** because unit means are not subtracted, time-invariant
+covariates like `ownership` are retained and estimable.
+
+**Cost:** RE is only consistent when $\eta_i$ is uncorrelated with
+the regressors. If firms with strong management culture (high $\eta_i$)
+also tend to be larger or more educated, RE picks up that correlation
+as a spurious covariate effect.
+
+## Estimating FE and RE side by side
+
+`plm()` uses the same formula interface as `lm()`. The `model`
+argument selects the estimator:
+
+```{r}
+#| label: fe-re-comparison
+
+# FE (within) — our Session 6 baseline
+m_fe <- plm(management ~ log_emp + degree_m,
+            data  = pdata,
+            model = "within")
+
+# RE (GLS)
+m_re <- plm(management ~ log_emp + degree_m,
+            data  = pdata,
+            model = "random")
+
+modelsummary(
+  list("FE (within)" = m_fe, "RE" = m_re),
+  gof_map = c("nobs", "r.squared"),
+  notes   = "FE: within estimator. RE: GLS (Swamy-Arora variance components)."
+)
+```
+
+The coefficients on `log_emp` and `degree_m` are likely similar here —
+both estimators are using much the same variation when $T$ is small.
+The real difference appears when we add `ownership`:
+
+```{r}
+#| label: re-ownership
+
+# FE with ownership — will silently drop or warn
+m_fe_own <- plm(management ~ log_emp + degree_m + ownership,
+                data  = pdata,
+                model = "within")
+
+# RE with ownership — the quantity FE cannot provide
+m_re_own <- plm(management ~ log_emp + degree_m + ownership,
+                data  = pdata,
+                model = "random")
+
+modelsummary(
+  list(
+    "FE"           = m_fe,
+    "FE + own."    = m_fe_own,
+    "RE"           = m_re,
+    "RE + own."    = m_re_own
+  ),
+  gof_map = c("nobs", "r.squared"),
+  notes   = "Ownership silently dropped or unreliable in FE models."
+)
+```
+
+Notice how FE handles the ownership dummies — compare that to the
+RE result where all categories are estimated.
+
+## The Hausman test
+
+The critical question is whether the RE assumption is defensible:
+does $\eta_i$ correlate with the regressors?
+
+The **Hausman test** answers this by comparing FE and RE slope
+estimates for the common covariates (`log_emp`, `degree_m`). Under
+$H_0$, both are consistent and the estimates should be similar.
+A significant divergence means RE is picking up endogeneity — use FE.
+
+```{r}
+#| label: hausman
+
+phtest(m_fe, m_re)
+```
+
+**Reading the result:**
+
+- $p < 0.05$: reject $H_0$ → estimates differ significantly → use FE
+- $p > 0.05$: cannot reject → RE is not detectably biased here →
+  RE + ownership estimates are usable, with appropriate caveats
+
+In most business/economics applications with firm- or country-level
+data, the Hausman test rejects $H_0$ and FE is the right choice. The
+RE + ownership estimates should then be treated as descriptive
+(showing the between-unit pattern) rather than causal.
+
+```{r}
+#| label: final-re-table
+
+modelsummary(
+  list(
+    "FE (main)"      = m_fe,
+    "RE (main)"      = m_re,
+    "RE + ownership" = m_re_own
+  ),
+  gof_map = c("nobs", "r.squared"),
+  stars   = TRUE,
+  notes   = c(
+    "FE: within estimator, SEs clustered at firm level.",
+    "RE: GLS (Swamy-Arora). HC robust SEs.",
+    "Hausman test: report p-value here and preferred estimator."
+  )
+)
+```
+
+---
+
+# First Differences
+
+## The FD transformation
+
+Both FE and FD eliminate $\eta_i$, but via different operations:
+
+- **FE:** subtract each unit's time-mean $\bar{y}_i$
+- **FD:** subtract the previous period's value $y_{i,t-1}$
+
+Let us compute the first differences manually to see exactly what
+the transformation does:
+
+```{r}
+#| label: fd-manual
+
+wms_fd <- wms |>
+  arrange(firmid, wave) |>
+  group_by(firmid) |>
+  mutate(
+    d_management = management - lag(management),
+    d_log_emp    = log_emp    - lag(log_emp),
+    d_degree_m   = degree_m   - lag(degree_m)
+  ) |>
+  ungroup() |>
+  filter(!is.na(d_management))   # first observation per firm has no lag
+
+# How many differenced observations do we have?
+nrow(wms_fd)
+
+# Preview
+wms_fd |>
+  select(firmid, wave, management, d_management,
+         log_emp, d_log_emp) |>
+  head(10)
+```
+
+Running OLS on the differenced data gives the FD estimator directly:
+
+```{r}
+#| label: fd-ols
+
+# OLS on demeaned data — this IS the FD estimator
+m_fd_manual <- feols(d_management ~ d_log_emp + d_degree_m,
+                     data = wms_fd)
+
+m_fd_manual
+```
+
+`plm` handles this automatically:
+
+```{r}
+#| label: fd-plm
+
+m_fd <- plm(management ~ log_emp + degree_m,
+            data  = pdata,
+            model = "fd")
+
+m_fd
+```
+
+The two results should be identical (up to standard error convention).
+
+## FE vs. FD side by side
+
+```{r}
+#| label: fe-fd-comparison
+
+modelsummary(
+  list(
+    "Pooled OLS" = feols(management ~ log_emp + degree_m,
+                         data = wms),
+    "FE"         = m_fe,
+    "FD"         = m_fd
+  ),
+  gof_map = c("nobs", "r.squared"),
+  notes   = c(
+    "FE: within estimator. FD: first-difference estimator.",
+    "FE and FD are identical when T = 2 per unit."
+  )
+)
+```
+
+For WMS, most firms appear in only two waves — so FE and FD are
+numerically very similar. The distinction matters most in longer panels.
+
+## Interpreting FD differently from FE
+
+The FD coefficient has a subtly different interpretation from FE:
+
+**FE coefficient on `log_emp`:**
+> For the same firm, when employment is above its own historical
+> average, is management quality also above average?
+
+**FD coefficient on `log_emp`:**
+> Among firms that grew between consecutive survey waves,
+> did management quality tend to improve over the same period?
+
+Both are within-unit estimates, but FD is explicitly a
+*change-on-change* comparison. This makes FD more natural when
+the research question is framed in terms of change — for example,
+evaluating a policy intervention or training programme.
+
+## Visualising within-firm change
+
+```{r}
+#| label: fd-viz
+
+# Track a handful of firms observed in multiple waves
+multi_wave_firms <- wms |>
+  count(firmid) |>
+  filter(n >= 2) |>
+  slice_sample(n = 8) |>
+  pull(firmid)
+
+wms |>
+  filter(firmid %in% multi_wave_firms) |>
+  ggplot(aes(x = wave, y = management,
+             group = firmid, colour = factor(firmid))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  labs(
+    title   = "Management quality over time: eight firms",
+    subtitle = "FD uses consecutive differences (arrows); FE uses deviations from the firm mean (dashed)",
+    x       = "Survey wave",
+    y       = "Management score (1–5)",
+    colour  = "Firm ID"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+# Dynamic Panels: An Outlook
+
+## When outcomes depend on their own past
+
+Many management and economic processes are **persistent**: this
+year's state is partly a function of last year's state.
+
+In the WMS context: a firm that had strong management practices
+in 2009 is likely to have strong practices in 2012 — because
+practices do not change overnight, and because the people and
+systems that produced the 2009 score are still in place.
+
+The natural model adds $y_{i,t-1}$ as a regressor:
+
+$$\text{management}_{it} = \alpha \cdot \text{management}_{i,t-1}
++ \beta \cdot x_{it} + \eta_i + v_{it}$$
+
+$\alpha$ measures persistence: controlling for firm size, how
+strongly does last wave's score predict this wave's?
+
+## Why FE produces biased estimates here
+
+Applying the within-transformation to a dynamic model creates
+a mechanical problem — the **Nickell bias**.
+
+The demeaned lagged outcome $(y_{i,t-1} - \bar{y}_i)$ is
+*correlated with* the demeaned error $(v_{it} - \bar{v}_i)$
+because $\bar{v}_i$ contains $v_{i,t-1}$, which is correlated
+with $y_{i,t-1}$.
+
+**The result:** FE systematically underestimates $\alpha$. The bias
+does not vanish unless $T \to \infty$, and for panels with small
+$T$ — like the WMS — it can be severe.
+
+```{r}
+#| label: nickell-illustration
+
+# Pooled OLS: biased upward (includes between-firm heterogeneity)
+m_dyn_ols <- feols(management ~ lag(management) + log_emp,
+                   data = wms)
+
+# FE: Nickell bias — biased downward
+m_dyn_fe  <- feols(management ~ lag(management) + log_emp | firmid,
+                   vcov = ~firmid,
+                   data = wms)
+
+modelsummary(
+  list("Dynamic OLS" = m_dyn_ols, "Dynamic FE (biased)" = m_dyn_fe),
+  gof_map = c("nobs", "r.squared", "r2.within"),
+  notes   = c(
+    "OLS biased upward; FE biased downward (Nickell).",
+    "True persistence parameter lies between these estimates.",
+    "Do not interpret the FE coefficient causally."
+  )
+)
+```
+
+The OLS estimate is pushed up by unobserved firm quality; the FE
+estimate is pulled down by the Nickell bias. The true persistence
+lies somewhere between — but neither estimate is reliable.
+
+## The solution: Arellano-Bond GMM
+
+The standard solution is the **Arellano-Bond estimator** (1991),
+also called Diff-GMM:
+
+1. **First-difference** to eliminate $\eta_i$
+2. **Instrument** $\Delta y_{i,t-1}$ with lagged *levels* of $y$
+   ($y_{i,t-2}, y_{i,t-3}, \ldots$) — they are correlated with
+   the differenced lag but, under no serial correlation in $v_{it}$,
+   uncorrelated with the differenced error
+
+An extension, **System-GMM** (Blundell & Bond, 1998), uses both the
+differenced and levels equations for better efficiency when the
+outcome is highly persistent.
+
+::: {.callout-note}
+## For further study
+Dynamic panel GMM is technically rich and takes time to do properly.
+The essential practical reference is:
+
+Roodman, D. (2009). How to do xtabond2: An introduction to Diff and
+Sys GMM in Stata. *Stata Journal*, 9(1), 86–136.
+The logic translates directly to `plm::pgmm()` in R.
+
+Recognising the *problem* (Nickell bias) is the critical skill for
+now — knowing when you need GMM is more important than knowing how
+to run it without understanding it.
+:::
+
+---
+
+# Quarto Skill: Documenting Estimator Choice
+
+When reporting results from multiple estimators, readers need to
+understand *why* you chose the one you did. Three things to always
+include:
+
+**1. State the estimator and SE approach in table notes:**
+
+```{r}
+#| label: quarto-skill
+
+modelsummary(
+  list("FE" = m_fe, "RE" = m_re, "FD" = m_fd),
+  gof_map = c("nobs", "r.squared"),
+  stars   = TRUE,
+  notes   = c(
+    "FE: within estimator, SEs clustered at firm level.",
+    "RE: GLS (Swamy-Arora). FD: first-difference, HC robust SEs.",
+    "Hausman test rejects RE (p < 0.05); FE preferred for causal inference.",
+    "FD shown for robustness; equivalent to FE when T = 2."
+  )
+)
+```
+
+**2. Reference the specification test that guided your choice.**
+A single sentence — "the Hausman test rejects RE ($p = 0.02$);
+we therefore use FE as the main specification" — is sufficient.
+
+**3. Show the robustness column.** Including FD or RE alongside
+your main FE result shows that conclusions are not sensitive
+to the choice of estimator. Stability across columns builds
+credibility.
+
+---
+
+# Summary
+
+**Random Effects:** treats $\eta_i$ as random; consistent only when
+$\eta_i \perp x_{it}$; can estimate time-invariant covariates;
+always test with `plm::phtest()` before preferring RE over FE.
+
+**First Differences:** subtracts $y_{i,t-1}$ from $y_{it}$;
+eliminates $\eta_i$; natural for change questions; equivalent
+to FE when $T = 2$; more robust when errors follow a random walk.
+
+**Dynamic panels:** including $y_{i,t-1}$ as a regressor makes FE
+inconsistent (Nickell bias); Arellano-Bond GMM is the solution;
+recognise the problem even if you do not yet implement the fix.
+
+**In R:** `plm::plm(..., model = "within" / "random" / "fd")`;
+`plm::phtest()` for the Hausman test.
+
+---
+
+# Further Reading
+
+- Baltagi, B.H. (2021). *Econometric Analysis of Panel Data* (6th ed.).
+  Springer. The standard reference for all panel methods covered here.
+- Croissant, Y. & Millo, G. (2008). Panel data econometrics in R:
+  The plm package. *Journal of Statistical Software*, 27(2).
+  Essential reading for R implementation — covers RE, FD, and tests.
+- Roodman, D. (2009). How to do xtabond2. *Stata Journal*, 9(1).
+  The practical guide to dynamic panel GMM.
+- Huntington-Klein, N. (2022). *The Effect*. Ch. 16–17.
+  Available at [theeffectbook.net](https://theeffectbook.net)

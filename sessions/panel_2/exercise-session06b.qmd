@@ -1,0 +1,199 @@
+---
+title: "Exercise: Advanced Panel Data"
+subtitle: "Session 6b · Quantitative Data Analysis: Applied Data Science and Modern Econometrics"
+author: "Your name here"
+date: "Optional — see course website for scheduling"
+format:
+  html:
+    toc: true
+    number-sections: true
+    theme: cosmo
+    self-contained: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+::: {.callout-note}
+## Business question
+*Does ownership type explain differences in management quality —
+and do firms that grow also improve their management practices?*
+
+This exercise builds on Session 6. You now have three estimators
+in your toolkit — FE, RE, and FD — and the Hausman test to choose
+between the first two. Work through the tasks in order. Write your R
+code in the chunks provided and your interpretation in the text below.
+
+You have approximately **30 minutes**.
+:::
+
+---
+
+# Setup
+
+Run this chunk first.
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(fixest)
+library(plm)
+library(modelsummary)
+
+wms <- read_csv("data/wms_da_textbook.csv") |>
+  mutate(log_emp = log(emp_firm))
+
+pdata <- pdata.frame(wms, index = c("firmid", "wave"))
+```
+
+---
+
+# Task 1 — Is ownership type time-invariant?
+
+Before choosing between FE and RE, check whether `ownership` actually
+varies within firms across waves. If it does not change, FE cannot
+estimate its effect.
+
+```{r}
+#| label: task1-check
+# Count how many distinct ownership types each firm has across waves
+# Hint: group_by(firmid) |> summarise(n_types = n_distinct(ownership))
+# Then count how many firms have n_types == 1 vs > 1
+```
+
+**Write here:** Is `ownership` effectively time-invariant in this
+dataset? What does this imply for whether FE can estimate its effect?
+
+---
+
+# Task 2 — RE and the ownership effect
+
+Estimate three models using `plm()` on `pdata`:
+
+- `m_fe`: FE (`model = "within"`) with `log_emp` and `degree_m`
+- `m_re`: RE (`model = "random"`) with `log_emp` and `degree_m`
+- `m_re_own`: RE with `log_emp`, `degree_m`, and `ownership`
+
+```{r}
+#| label: task2-models
+# m_fe     <- plm(management ~ log_emp + degree_m, data = pdata, model = "within")
+# m_re     <- plm(management ~ log_emp + degree_m, data = pdata, model = "random")
+# m_re_own <- plm(management ~ log_emp + degree_m + ownership, ...)
+```
+
+Present all three in a single `modelsummary()` table.
+
+```{r}
+#| label: task2-table
+# Your table here
+```
+
+**Interpret:**
+
+1. Do the `log_emp` and `degree_m` coefficients differ much between
+   FE and RE? What does this tell you about the role of between-unit
+   variation in these estimates?
+
+2. Looking at the RE + ownership model: which ownership types predict
+   higher management quality? Does this match your prior expectations?
+
+---
+
+# Task 3 — The Hausman test
+
+Run the Hausman test to assess whether the RE model is defensible.
+
+```{r}
+#| label: task3-hausman
+# phtest(m_fe, m_re)
+```
+
+**Interpret:**
+
+1. State the null hypothesis in plain English — what is the test
+   actually checking?
+
+2. What does your test result say? Should you prefer FE or RE as
+   your main specification?
+
+3. Given this result, how should you treat the ownership coefficients
+   from Task 2? Are they a reliable causal estimate or a descriptive
+   pattern?
+
+---
+
+# Task 4 — First Differences
+
+Estimate a **First Differences** model of `management` on
+`log_emp` and `degree_m` using `plm(..., model = "fd")`.
+
+```{r}
+#| label: task4-fd
+# m_fd <- plm(management ~ log_emp + degree_m, data = pdata, model = "fd")
+```
+
+Present pooled OLS, FE, and FD in a single table.
+
+```{r}
+#| label: task4-table
+# Your table here
+# For pooled OLS: feols(management ~ log_emp + degree_m, data = wms)
+```
+
+**Interpret:**
+
+1. Rephrase the FD coefficient on `log_emp` in one sentence, using
+   the change-on-change language appropriate for FD. Begin with:
+   *"Among firms that grew between survey waves..."*
+
+2. FE and FD give similar estimates here. Why would you expect that
+   given the structure of the WMS panel?
+
+---
+
+# Task 5 — Reflection and decision
+
+::: {.callout-warning}
+## Think before you code
+This task requires no new code. Write 4–6 sentences in total.
+:::
+
+You have now estimated the management-size relationship using
+four estimators: pooled OLS, FE, RE, and FD.
+
+**Answer the following:**
+
+1. A colleague argues: "RE is more efficient than FE, so we should
+   always prefer it." Write two sentences explaining why this
+   argument is incomplete and under what conditions it would be
+   wrong in this specific dataset.
+
+2. You are writing a thesis section that asks: "Did firms that
+   expanded their workforce between 2009 and 2015 also improve
+   their management practices?" Which estimator from today is
+   most naturally suited to this question, and why?
+
+---
+
+# Optional Extension
+
+::: {.callout-tip}
+## If you finish early
+The demo showed that including `lag(management)` in a FE model
+produces biased estimates (Nickell bias). Try it yourself:
+
+Estimate two dynamic models using `feols()`: one pooled OLS and
+one FE, both including `lag(management)` and `log_emp`. Compare
+the coefficient on `lag(management)` across the two. Based on the
+theory of Nickell bias, in which direction would you expect the
+FE estimate to be biased relative to the true value? Does the
+comparison with OLS support this?
+:::
+
+```{r}
+#| label: optional-dynamic
+# m_dyn_ols <- feols(management ~ lag(management) + log_emp, data = wms)
+# m_dyn_fe  <- feols(management ~ lag(management) + log_emp | firmid,
+#                    vcov = ~firmid, data = wms)
+```
