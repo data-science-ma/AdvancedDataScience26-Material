@@ -58,7 +58,7 @@ model_work <- lm(log(price) ~ log(distance + 0.1) + stars, data = hotels)
 
 ---
 
-## A regression output we need to interrogate
+## A regression output we need to interrogate {.smaller}
 
 We have estimated hotel price as a function of distance and star rating.
 
@@ -428,12 +428,10 @@ bptest(model_base)
 The test confirms what the plot already showed. Always look at the plot first — the test just formalises the diagnosis.
 :::
 
-## The fix: Heteroskedasticity-robust (HC) standard errors
+## The fix: Heteroskedasticity-robust (HC) standard errors {.smaller}
 
-- Replace standard formula with a "sandwich" estimator
-- Uses each observation's actual squared residual to estimate uncertainty.
-- **Result:** larger SEs where the model struggles, smaller where it fits well. 
-  - Estimates do not change.
+- Standard formula $\rightarrow$ "sandwich" estimator: uses each observation's squared residual to estimate uncertainty.
+- **Result:** larger SEs where the model struggles, smaller where it fits well $\rightarrow$ Estimates do not change.
 
 ```{r}
 #| echo: true
